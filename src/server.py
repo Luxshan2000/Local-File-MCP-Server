@@ -34,7 +34,8 @@ def load_env_config():
         "LOG_REQUESTS": True,
     }
 
-    env_path = Path(__file__).parent / ".env"
+    env_path = Path(__file__).parent.parent / ".env"
+
     if env_path.exists():
         with open(env_path, "r") as f:
             for line in f:
@@ -134,16 +135,7 @@ class MCPFileServer(BaseHTTPRequestHandler):
         try:
             self.log_request_info("POST", self.path)
 
-            # Check API key
-            api_key = self.headers.get("X-API-Key") or self.headers.get(
-                "Authorization", ""
-            ).replace("Bearer ", "")
-            if not self.validate_api_key(api_key):
-                self.log_request_info("POST", self.path, False)
-                self.send_error_response(-32001, "Invalid API key")
-                return
-
-            # Read request body
+            # Read request body first to get request_id if available
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length)
 
@@ -153,13 +145,30 @@ class MCPFileServer(BaseHTTPRequestHandler):
                 self.send_error_response(-32700, "Parse error")
                 return
 
+            request_id = request_data.get("id")
+
+            # Check API key
+            api_key = self.headers.get("X-API-Key") or self.headers.get(
+                "Authorization", ""
+            ).replace("Bearer ", "")
+            if not self.validate_api_key(api_key):
+                self.log_request_info("POST", self.path, False)
+                self.send_error_response(-32001, "Invalid API key", request_id)
+                return
+
             # Handle MCP request
             response = self.handle_mcp_request(request_data)
             self.send_json_response(response)
 
         except Exception as e:
             print(f"Error: {e}")
-            self.send_error_response(-32000, f"Internal error: {str(e)}")
+            try:
+                request_id = (
+                    request_data.get("id") if "request_data" in locals() else None
+                )
+            except:
+                request_id = None
+            self.send_error_response(-32000, f"Internal error: {str(e)}", request_id)
 
     def do_GET(self):
         """Handle GET requests"""
@@ -394,9 +403,9 @@ class MCPFileServer(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(response)
 
-    def send_error_response(self, code, message):
+    def send_error_response(self, code, message, request_id=None):
         """Send error response"""
-        error_data = self.error_response(None, code, message)
+        error_data = self.error_response(request_id, code, message)
         self.send_json_response(error_data)
 
     def do_OPTIONS(self):

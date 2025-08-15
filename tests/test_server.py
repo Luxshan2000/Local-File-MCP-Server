@@ -43,19 +43,23 @@ class TestMCPFileServer(unittest.TestCase):
             "LOG_REQUESTS": False,
         }
 
+        # Start patching CONFIG and keep it active
+        self.config_patcher = patch("server.CONFIG", self.test_config)
+        self.config_patcher.start()
+
         # Start test server
-        with patch("server.CONFIG", self.test_config):
-            self.server = HTTPServer(("localhost", 8083), MCPFileServer)
-            self.server_thread = threading.Thread(target=self.server.serve_forever)
-            self.server_thread.daemon = True
-            self.server_thread.start()
-            time.sleep(0.1)  # Give server time to start
+        self.server = HTTPServer(("localhost", 8083), MCPFileServer)
+        self.server_thread = threading.Thread(target=self.server.serve_forever)
+        self.server_thread.daemon = True
+        self.server_thread.start()
+        time.sleep(0.1)  # Give server time to start
 
     def tearDown(self):
         """Clean up test environment"""
         self.server.shutdown()
         self.server.server_close()
-        shutil.rmtree(self.test_dir, ignore_errors=True)
+        self.config_patcher.stop()
+        # shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def make_request(self, data, api_key="test-api-key-123"):
         """Helper to make MCP requests"""
