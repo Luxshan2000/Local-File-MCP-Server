@@ -7,7 +7,7 @@ A secure **Model Context Protocol (MCP)** server built with **FastMCP** that pro
 ## 📋 Features
 
 - **🔒 Secure & Sandboxed** - All file operations restricted to `allowed/` directory  
-- **⚡ FastMCP Powered** - Built with FastMCP for simplicity and reliability
+- **⚡ FastMCP Powered** - Built with FastMCP supporting both stdio and HTTP transports
 - **📝 Complete CRUD** - Create, read, write, delete, and list files
 - **🛡️ Path Protection** - Prevents directory traversal attacks
 - **🎯 MCP 2024-11-05** - Follows latest MCP protocol standards
@@ -40,8 +40,15 @@ That's it! Your server is ready to use.
 ## 🎮 Usage
 
 ### Start the Server
+
+**For Claude Desktop (stdio transport):**
 ```bash
 make run
+```
+
+**For HTTP access (port 8082):**
+```bash
+make run-http
 ```
 
 ### Run Tests
@@ -54,14 +61,23 @@ make test
 make demo
 ```
 
+### Test HTTP Server
+```bash
+# In terminal 1:
+make run-http
+
+# In terminal 2:  
+make test-http
+```
+
 ### View Status
 ```bash
 make status
 ```
 
-## 🔌 Claude Desktop Integration
+## 🔌 Integration Options
 
-Add this to your Claude Desktop `config.json`:
+### Claude Desktop Integration
 
 **Location:**
 - **macOS**: `~/Library/Application Support/Claude/config.json`
@@ -85,6 +101,15 @@ Add this to your Claude Desktop `config.json`:
 ```
 
 Replace `/absolute/path/to/local_file_mcp_server` with your actual project path.
+
+### HTTP API Access (Alternative)
+
+For direct HTTP access without Claude Desktop, start the HTTP server:
+```bash
+make run-http
+```
+
+Then access the server at: `http://localhost:8082/mcp` (FastMCP streamable HTTP/SSE)
 
 ## 📁 Available Tools
 
@@ -125,16 +150,17 @@ local_file_mcp_server/
 ├── 📄 README.md                    # This documentation
 ├── 🔧 Makefile                     # Development commands
 ├── 🔧 requirements.txt             # Dependencies (for dev tools)
-├── 🔧 claude-config.json           # Ready-to-use Claude config
+├── 🔧 claude-config.json           # Ready-to-use Claude Desktop config
 │
 ├── 📁 src/
-│   └── fastmcp_server.py           # Main FastMCP server
+│   └── fastmcp_server.py           # Main FastMCP server (dual transport)
 │
 ├── 📁 tests/
 │   └── test_fastmcp_server.py      # Comprehensive test suite
 │
 ├── 📁 scripts/
-│   └── test_client.py              # Interactive demo client
+│   ├── test_client.py              # Interactive demo client (stdio)
+│   └── test_http_client.py         # HTTP connectivity test
 │
 ├── 📁 allowed/                     # 🔒 Sandboxed directory
 │   └── .gitkeep
@@ -163,9 +189,11 @@ The tests verify:
 |---------|-------------|
 | `make help` | Show all available commands |
 | `make setup` | Install FastMCP and setup directories |
-| `make test` | Run comprehensive test suite |
-| `make run` | Start the FastMCP server |
-| `make demo` | Run interactive demo client |
+| `make test` | Run comprehensive test suite (stdio) |
+| `make test-http` | Test HTTP server connectivity |
+| `make run` | Start server (stdio for Claude Desktop) |
+| `make run-http` | Start server (HTTP on port 8082) |
+| `make demo` | Run interactive demo client (stdio) |
 | `make clean` | Clean up temporary files |
 | `make status` | Show project status |
 | `make all` | Run setup + test + demo |

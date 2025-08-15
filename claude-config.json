@@ -1,12 +1,12 @@
 {
   "mcpServers": {
     "local-file-server": {
-      "command": "/Users/admin/Desktop/Custom tool- H2OGPTe/local_file_mcp_server/venv/bin/python",
+      "command": "/absolute/path/to/local_file_mcp_server/venv/bin/python",
       "args": [
-        "/Users/admin/Desktop/Custom tool- H2OGPTe/local_file_mcp_server/src/fastmcp_server.py"
+        "/absolute/path/to/local_file_mcp_server/src/fastmcp_server.py"
       ],
       "env": {
-        "MCP_ALLOWED_PATH": "/Users/admin/Desktop/Custom tool- H2OGPTe/local_file_mcp_server/allowed",
+        "MCP_ALLOWED_PATH": "/absolute/path/to/local_file_mcp_server/allowed",
         "MCP_MAX_FILE_SIZE": "10485760",
         "MCP_ALLOWED_EXTENSIONS": ".txt,.json,.md,.csv,.log,.xml,.yaml,.yml,.conf,.cfg"
       }

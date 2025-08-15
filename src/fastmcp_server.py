@@ -141,4 +141,18 @@ def list_files(directory_path: Annotated[str, "Directory path to list"] = ".") -
 
 
 if __name__ == "__main__":
-    mcp.run()
+    import sys
+    
+    # Check if HTTP flag is provided
+    if "--http" in sys.argv:
+        port = 8082
+        if "--port" in sys.argv:
+            port_idx = sys.argv.index("--port")
+            if port_idx + 1 < len(sys.argv):
+                port = int(sys.argv[port_idx + 1])
+        
+        print(f"🌐 Starting FastMCP HTTP server on port {port}")
+        mcp.run(transport="http", port=port)
+    else:
+        # Default to stdio for MCP clients like Claude Desktop
+        mcp.run()

@@ -8,9 +8,11 @@ help:
 	@echo "  help        - Show this help message"
 	@echo "  install     - Install FastMCP and dependencies"
 	@echo "  setup       - Complete setup (install + create directories)"
-	@echo "  test        - Run comprehensive test suite"
-	@echo "  run         - Start the FastMCP server"
-	@echo "  demo        - Run interactive demo client"
+	@echo "  test        - Run comprehensive test suite (stdio)"
+	@echo "  test-http   - Test HTTP server connectivity"
+	@echo "  run         - Start the FastMCP server (stdio for Claude Desktop)"
+	@echo "  run-http    - Start the FastMCP server (HTTP on port 8082)"
+	@echo "  demo        - Run interactive demo client (stdio)"
 	@echo "  clean       - Clean up temporary files"
 	@echo "  status      - Show project status"
 	@echo "  all         - Run setup + test + demo"
@@ -43,20 +45,38 @@ test:
 		echo "❌ Virtual environment not found. Run 'make install' first."; \
 	fi
 
-# Start the FastMCP server
+# Start the FastMCP server (stdio for Claude Desktop)
 run:
-	@echo "🚀 Starting FastMCP File Server..."
+	@echo "🚀 Starting FastMCP File Server (stdio)..."
 	@if [ -d "venv" ]; then \
 		./venv/bin/python src/fastmcp_server.py; \
 	else \
 		echo "❌ Virtual environment not found. Run 'make install' first."; \
 	fi
 
-# Run demo client
+# Start the FastMCP server via HTTP
+run-http:
+	@echo "🌐 Starting FastMCP File Server (HTTP on port 8082)..."
+	@if [ -d "venv" ]; then \
+		./venv/bin/python src/fastmcp_server.py --http --port 8082; \
+	else \
+		echo "❌ Virtual environment not found. Run 'make install' first."; \
+	fi
+
+# Run demo client (stdio)
 demo:
-	@echo "🎮 Running demo client..."
+	@echo "🎮 Running demo client (stdio)..."
 	@if [ -d "venv" ]; then \
 		cd scripts && ../venv/bin/python test_client.py; \
+	else \
+		echo "❌ Virtual environment not found. Run 'make install' first."; \
+	fi
+
+# Test HTTP server (requires server to be running)
+test-http:
+	@echo "🌐 Testing HTTP server (make sure to run 'make run-http' first)..."
+	@if [ -d "venv" ]; then \
+		./venv/bin/python scripts/test_http_client.py; \
 	else \
 		echo "❌ Virtual environment not found. Run 'make install' first."; \
 	fi
