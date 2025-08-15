@@ -1,87 +1,82 @@
-# Makefile for MCP File Server
+# FastMCP File Server - Development Tools
 
-.PHONY: help install test run clean dev-setup lint format
+.PHONY: help install setup test run demo clean status all
 
 # Default target
 help:
-	@echo "MCP File Server - Available Commands:"
+	@echo "FastMCP File Server - Available Commands:"
 	@echo "  help        - Show this help message"
-	@echo "  install     - Install dependencies"
-	@echo "  dev-setup   - Set up development environment"
-	@echo "  generate-key - Generate secure API key"
-	@echo "  test        - Run all tests"
-	@echo "  test-cov    - Run tests with coverage"
-	@echo "  run         - Start the server"
-	@echo "  lint        - Run linting checks"
-	@echo "  format      - Format code"
+	@echo "  install     - Install FastMCP and dependencies"
+	@echo "  setup       - Complete setup (install + create directories)"
+	@echo "  test        - Run comprehensive test suite"
+	@echo "  run         - Start the FastMCP server"
+	@echo "  demo        - Run interactive demo client"
 	@echo "  clean       - Clean up temporary files"
+	@echo "  status      - Show project status"
+	@echo "  all         - Run setup + test + demo"
 
-# Install dependencies (creates venv if needed)
+# Install FastMCP
 install:
+	@echo "🔧 Setting up FastMCP File Server..."
 	@if [ ! -d "venv" ]; then \
 		echo "Creating virtual environment..."; \
 		python3 -m venv venv; \
 	fi
-	@echo "Installing dependencies in virtual environment..."
-	./venv/bin/pip install -r requirements.txt
+	@echo "Installing FastMCP..."
+	./venv/bin/pip install --upgrade pip
+	./venv/bin/pip install fastmcp
+	@echo "✅ FastMCP installed successfully!"
 
-# Development setup
-dev-setup: install generate-key
-	@echo "✅ Development environment ready!"
-	@echo "To activate venv: source venv/bin/activate"
+# Complete setup
+setup: install
+	@echo "🚀 Setting up directories..."
+	@mkdir -p allowed
+	@touch allowed/.gitkeep
+	@echo "✅ Setup complete! Ready to use."
 
-# Generate secure API key
-generate-key:
-	python3 scripts/generate_key.py
-
-# Run tests
+# Run comprehensive tests
 test:
+	@echo "🧪 Running FastMCP test suite..."
 	@if [ -d "venv" ]; then \
-		./venv/bin/python -m pytest tests/ -v; \
+		./venv/bin/python tests/test_fastmcp_server.py; \
 	else \
-		echo "⚠️  Virtual environment not found. Run 'make install' first or use 'python3 -m pytest tests/ -v'"; \
-		python3 -m pytest tests/ -v 2>/dev/null || echo "❌ pytest not installed globally. Run 'make install' first."; \
+		echo "❌ Virtual environment not found. Run 'make install' first."; \
 	fi
 
-# Run tests with coverage
-test-cov:
-	@if [ -d "venv" ]; then \
-		./venv/bin/python -m pytest tests/ -v --cov=src --cov-report=html --cov-report=term; \
-	else \
-		echo "⚠️  Virtual environment not found. Run 'make install' first."; \
-	fi
-
-# Start the server
+# Start the FastMCP server
 run:
-	python3 src/server.py
-
-# Lint code
-lint:
+	@echo "🚀 Starting FastMCP File Server..."
 	@if [ -d "venv" ]; then \
-		./venv/bin/flake8 src/ tests/ scripts/ || echo "⚠️  flake8 not installed in venv"; \
-		./venv/bin/mypy src/ --ignore-missing-imports || echo "⚠️  mypy not installed in venv"; \
+		./venv/bin/python src/fastmcp_server.py; \
 	else \
-		echo "⚠️  Virtual environment not found. Run 'make install' first."; \
-		echo "Or install globally: pip3 install flake8 mypy"; \
+		echo "❌ Virtual environment not found. Run 'make install' first."; \
 	fi
 
-# Format code
-format:
+# Run demo client
+demo:
+	@echo "🎮 Running demo client..."
 	@if [ -d "venv" ]; then \
-		./venv/bin/black src/ tests/ scripts/ || echo "⚠️  black not installed in venv"; \
+		cd scripts && ../venv/bin/python test_client.py; \
 	else \
-		echo "⚠️  Virtual environment not found. Run 'make install' first."; \
-		echo "Or install globally: pip3 install black"; \
+		echo "❌ Virtual environment not found. Run 'make install' first."; \
 	fi
 
 # Clean temporary files
 clean:
-	rm -rf __pycache__ .pytest_cache .coverage htmlcov venv
-	find . -type f -name "*.pyc" -delete
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@echo "🧹 Cleaning up..."
+	rm -rf __pycache__ src/__pycache__ tests/__pycache__ scripts/__pycache__
+	rm -rf .pytest_cache *.pyc
+	find allowed/ -name "*.txt" -o -name "*.json" -o -name "*.md" | grep -v ".gitkeep" | xargs rm -f 2>/dev/null || true
+	@echo "✅ Cleanup complete!"
 
-# Run demo client
-demo:
-	@echo "Starting demo (make sure server is running first)..."
-	@read -p "Enter API key: " api_key; \
-	python3 scripts/test_client.py http://localhost:8082 "$$api_key"
+# Show project status
+status:
+	@echo "📊 FastMCP File Server Status:"
+	@echo "Virtual Environment: $$([ -d venv ] && echo '✅ Exists' || echo '❌ Missing (run make install)')"
+	@echo "FastMCP Installed: $$([ -f venv/bin/python ] && ./venv/bin/python -c 'import fastmcp; print("✅ Ready")' 2>/dev/null || echo '❌ Missing (run make install)')"
+	@echo "Allowed Directory: $$([ -d allowed ] && echo '✅ allowed/' || echo '❌ Missing (run make setup)')"
+	@echo "Server File: $$([ -f src/fastmcp_server.py ] && echo '✅ src/fastmcp_server.py' || echo '❌ Missing')"
+
+# Run everything
+all: setup test demo
+	@echo "🎉 All tasks completed successfully!"

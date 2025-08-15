@@ -1,7 +1,8 @@
 # MCP File Server - Python Dependencies
-# For testing and development
+# Official MCP SDK
+mcp>=1.0.0
 
-# Testing framework
+# For testing and development
 pytest>=7.0.0
 pytest-cov>=4.0.0
 
