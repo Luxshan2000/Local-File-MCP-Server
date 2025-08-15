@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "local-file-server": {
+      "command": "python3",
+      "args": [
+        "./src/server.py",
+        "--port", "8082"
+      ],
+      "env": {
+        "MCP_PORT": "8082",
+        "MCP_HOST": "localhost"
+      },
+      "description": "Local file operations server with sandboxed directory access",
+      "capabilities": {
+        "tools": ["local_file_mcp_server"]
+      }
+    }
+  }
+}
