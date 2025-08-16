@@ -12,6 +12,8 @@ This server provides AI assistants with comprehensive file operations:
 - Get file information (size, date, permissions)
 - Create and manage directories
 - Recursive directory listings with pattern matching
+- Batch operations for handling multiple files efficiently
+- Advanced file search with name and content pattern matching
 
 **Connection Modes:**
 - **stdio** - Direct integration with Claude Desktop
@@ -142,6 +144,11 @@ Once configured, you can ask Claude to:
 - "Insert this code at line 15 in main.py"
 - "Delete lines 5-10 from test.txt"
 - "Append this log entry to debug.log"
+- "Copy config.json to backup/config_backup.json"
+- "Read all .py files in the src/ directory at once"
+- "Create these 5 files with their content in one operation"
+- "Find all .js files containing 'console.log' in the project"
+- "Delete all temporary .tmp files in the workspace"
 
 ## Security
 

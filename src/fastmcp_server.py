@@ -928,6 +928,259 @@ def move_directory(
     return f"Successfully moved directory {rel_source} to {rel_dest}"
 
 
+# Batch operations
+@mcp.tool()
+@requires_scopes("read:files")
+def batch_read(
+    file_paths_array: Annotated[list, "Array of file paths to read"],
+) -> str:
+    """Read multiple files at once"""
+    if not file_paths_array:
+        raise ValueError("File paths array cannot be empty")
+    
+    results = []
+    errors = []
+    
+    for file_path_str in file_paths_array:
+        try:
+            # Validate path
+            validated_path = validate_path(file_path_str)
+            
+            if not validated_path.exists():
+                rel_path = validated_path.relative_to(base_dir)
+                errors.append(f"{rel_path}: File does not exist")
+                continue
+                
+            if validated_path.is_dir():
+                rel_path = validated_path.relative_to(base_dir)
+                errors.append(f"{rel_path}: Path is a directory")
+                continue
+            
+            try:
+                content = validated_path.read_text(encoding="utf-8")
+                rel_path = validated_path.relative_to(base_dir)
+                results.append(f"=== {rel_path} ===\n{content}")
+            except UnicodeDecodeError:
+                rel_path = validated_path.relative_to(base_dir)
+                errors.append(f"{rel_path}: File is not text readable")
+                
+        except Exception as e:
+            errors.append(f"{file_path_str}: {str(e)}")
+    
+    output_parts = []
+    if results:
+        output_parts.append(f"Successfully read {len(results)} file(s):\n\n" + "\n\n".join(results))
+    
+    if errors:
+        output_parts.append(f"Errors ({len(errors)}):\n" + "\n".join(errors))
+    
+    if not results and not errors:
+        return "No files processed"
+    
+    return "\n\n".join(output_parts)
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+def batch_create(
+    files_content_array: Annotated[list, "Array of objects with file_path and content"],
+) -> str:
+    """Create multiple files at once"""
+    if not files_content_array:
+        raise ValueError("Files content array cannot be empty")
+    
+    created = []
+    errors = []
+    
+    for file_data in files_content_array:
+        try:
+            if not isinstance(file_data, dict) or "file_path" not in file_data or "content" not in file_data:
+                errors.append("Invalid file data: must have 'file_path' and 'content' fields")
+                continue
+                
+            file_path_str = file_data["file_path"]
+            content = file_data["content"]
+            
+            # Validate path and extension
+            validated_path = validate_path(file_path_str)
+            if not validate_file_extension(file_path_str):
+                rel_path = validated_path.relative_to(base_dir)
+                errors.append(f"{rel_path}: File extension not allowed")
+                continue
+            
+            if validated_path.exists():
+                rel_path = validated_path.relative_to(base_dir)
+                errors.append(f"{rel_path}: File already exists")
+                continue
+            
+            if len(content.encode("utf-8")) > MAX_FILE_SIZE:
+                rel_path = validated_path.relative_to(base_dir)
+                errors.append(f"{rel_path}: File size exceeds limit")
+                continue
+            
+            # Create file
+            validated_path.parent.mkdir(parents=True, exist_ok=True)
+            validated_path.write_text(content, encoding="utf-8")
+            
+            rel_path = validated_path.relative_to(base_dir)
+            created.append(f"{rel_path} ({len(content)} characters)")
+            
+        except Exception as e:
+            file_path_str = file_data.get("file_path", "unknown") if isinstance(file_data, dict) else "unknown"
+            errors.append(f"{file_path_str}: {str(e)}")
+    
+    output_parts = []
+    if created:
+        output_parts.append(f"Successfully created {len(created)} file(s):\n" + "\n".join(created))
+    
+    if errors:
+        output_parts.append(f"Errors ({len(errors)}):\n" + "\n".join(errors))
+    
+    if not created and not errors:
+        return "No files processed"
+    
+    return "\n\n".join(output_parts)
+
+
+@mcp.tool()
+@requires_scopes("delete:files")
+def batch_delete(
+    file_paths_array: Annotated[list, "Array of file paths to delete"],
+) -> str:
+    """Delete multiple files at once"""
+    if not file_paths_array:
+        raise ValueError("File paths array cannot be empty")
+    
+    deleted = []
+    errors = []
+    
+    for file_path_str in file_paths_array:
+        try:
+            # Validate path
+            validated_path = validate_path(file_path_str)
+            
+            if not validated_path.exists():
+                rel_path = validated_path.relative_to(base_dir)
+                errors.append(f"{rel_path}: File does not exist")
+                continue
+                
+            if validated_path.is_dir():
+                rel_path = validated_path.relative_to(base_dir)
+                errors.append(f"{rel_path}: Cannot delete directory (use delete_directory)")
+                continue
+            
+            # Delete file
+            validated_path.unlink()
+            
+            rel_path = validated_path.relative_to(base_dir)
+            deleted.append(str(rel_path))
+            
+        except Exception as e:
+            errors.append(f"{file_path_str}: {str(e)}")
+    
+    output_parts = []
+    if deleted:
+        output_parts.append(f"Successfully deleted {len(deleted)} file(s):\n" + "\n".join(deleted))
+    
+    if errors:
+        output_parts.append(f"Errors ({len(errors)}):\n" + "\n".join(errors))
+    
+    if not deleted and not errors:
+        return "No files processed"
+    
+    return "\n\n".join(output_parts)
+
+
+@mcp.tool()
+@requires_scopes("read:files")
+@validates_path_and_extension("directory", check_extension=False)
+def find_files(
+    directory: Annotated[str, "Directory to search in"],
+    name_pattern: Annotated[str, "File name pattern to match (glob pattern)"],
+    content_pattern: Annotated[str, "Content pattern to search for (optional)"] = None,
+) -> str:
+    """Search for files by name and optionally by content"""
+    if not directory.exists():
+        rel_path = directory.relative_to(base_dir)
+        raise ValueError(f"Directory does not exist: {rel_path}")
+    
+    if not directory.is_dir():
+        rel_path = directory.relative_to(base_dir)
+        raise ValueError(f"Path is not a directory: {rel_path}")
+    
+    # Find files matching name pattern
+    matched_files = []
+    try:
+        for file_path in directory.rglob(name_pattern):
+            if file_path.is_file():
+                matched_files.append(file_path)
+    except Exception as e:
+        raise ValueError(f"Invalid name pattern: {e}")
+    
+    if not content_pattern:
+        # Return name matches only
+        if matched_files:
+            results = []
+            for file_path in matched_files:
+                rel_path = file_path.relative_to(base_dir)
+                try:
+                    size = file_path.stat().st_size
+                    if size > 1024 * 1024:
+                        size_str = f" ({size / (1024 * 1024):.1f}MB)"
+                    elif size > 1024:
+                        size_str = f" ({size / 1024:.1f}KB)"
+                    else:
+                        size_str = f" ({size}B)"
+                    results.append(f"{rel_path}{size_str}")
+                except (OSError, ValueError):
+                    results.append(str(rel_path))
+            
+            base_rel = directory.relative_to(base_dir) if directory != base_dir else "."
+            return f"Found {len(matched_files)} file(s) matching '{name_pattern}' in {base_rel}:\n" + "\n".join(results)
+        else:
+            base_rel = directory.relative_to(base_dir) if directory != base_dir else "."
+            return f"No files matching '{name_pattern}' found in {base_rel}"
+    
+    # Search content in matched files
+    content_matches = []
+    content_errors = []
+    
+    for file_path in matched_files:
+        try:
+            content = file_path.read_text(encoding="utf-8")
+            lines = content.splitlines()
+            
+            matching_lines = []
+            for line_num, line in enumerate(lines, 1):
+                if content_pattern in line:
+                    matching_lines.append(f"  {line_num}: {line}")
+            
+            if matching_lines:
+                rel_path = file_path.relative_to(base_dir)
+                content_matches.append(f"{rel_path} ({len(matching_lines)} matches):\n" + "\n".join(matching_lines))
+                
+        except UnicodeDecodeError:
+            rel_path = file_path.relative_to(base_dir)
+            content_errors.append(f"{rel_path}: Not text readable")
+        except Exception as e:
+            rel_path = file_path.relative_to(base_dir)
+            content_errors.append(f"{rel_path}: {str(e)}")
+    
+    output_parts = []
+    base_rel = directory.relative_to(base_dir) if directory != base_dir else "."
+    
+    if content_matches:
+        output_parts.append(f"Found content matches for '{content_pattern}' in {len(content_matches)} file(s) from {base_rel}:\n\n" + "\n\n".join(content_matches))
+    
+    if content_errors:
+        output_parts.append("Content search errors:\n" + "\n".join(content_errors))
+    
+    if not content_matches and not content_errors:
+        return f"No content matches for '{content_pattern}' found in files matching '{name_pattern}' in {base_rel}"
+    
+    return "\n\n".join(output_parts)
+
+
 if __name__ == "__main__":
     import sys
 
