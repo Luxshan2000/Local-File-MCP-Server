@@ -6,9 +6,11 @@ A versatile secure file server that provides AI assistants with safe file operat
 
 This server provides AI assistants with secure file operations:
 - Create and edit text files
-- Read file contents  
-- Delete files
+- Read file contents and specific line ranges
+- Delete files and line ranges
 - List directory contents
+- Search and replace text within files
+- Insert, append, and manipulate lines
 
 **Connection Modes:**
 - **stdio** - Direct integration with Claude Desktop
@@ -133,9 +135,12 @@ This allows any web-based AI system to securely access your local files through 
 
 Once configured, you can ask Claude to:
 - "Create a file called notes.txt with my meeting notes"
-- "Read the contents of my todo list"
-- "List all files in the directory"
-- "Delete the old backup file"
+- "Read lines 10-20 from config.py"
+- "Search for 'TODO' in all my files"
+- "Replace 'old_function' with 'new_function' in utils.py"
+- "Insert this code at line 15 in main.py"
+- "Delete lines 5-10 from test.txt"
+- "Append this log entry to debug.log"
 
 ## Security
 

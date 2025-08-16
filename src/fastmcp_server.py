@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import Annotated
 from functools import wraps
@@ -263,6 +264,348 @@ def list_files(directory_path: Annotated[str, "Directory path to list"] = ".") -
         target_path.relative_to(base_dir) if target_path != base_dir else "."
     )
     return f"Contents of {relative_display}:\n" + "\n".join(items)
+
+
+# Line-based operations
+@mcp.tool()
+@requires_scopes("read:files")
+@validates_path_and_extension(check_extension=False)
+def read_lines(
+    file_path: Annotated[str, "Path to read the file"],
+    start_line: Annotated[int, "Starting line number (1-based)"],
+    end_line: Annotated[int, "Ending line number (1-based, inclusive)"],
+) -> str:
+    """Read specific line ranges from a file"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+
+    if file_path.is_dir():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"Path is a directory: {rel_path}")
+
+    try:
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+
+        # Convert to 0-based indexing
+        start_idx = max(0, start_line - 1)
+        end_idx = min(len(lines), end_line)
+
+        if start_idx >= len(lines):
+            raise ValueError(
+                f"Start line {start_line} exceeds file length ({len(lines)} lines)"
+            )
+
+        selected_lines = lines[start_idx:end_idx]
+        rel_path = file_path.relative_to(base_dir)
+
+        result = f"Lines {start_line}-{end_line} from {rel_path}:\n"
+        for i, line in enumerate(selected_lines, start=start_line):
+            result += f"{i}: {line}\n"
+
+        return result.rstrip()
+
+    except UnicodeDecodeError:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File is not text readable: {rel_path}")
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension()
+def write_lines(
+    file_path: Annotated[str, "Path to write the file"],
+    lines_array: Annotated[list, "Array of lines to write"],
+    start_line: Annotated[int, "Starting line number (1-based) to replace from"],
+) -> str:
+    """Insert/replace specific lines in a file"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+
+    try:
+        existing_lines = file_path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File is not text readable: {rel_path}")
+
+    # Convert to 0-based indexing
+    start_idx = start_line - 1
+
+    if start_idx < 0:
+        raise ValueError("Line number must be >= 1")
+
+    # Replace lines starting from start_idx
+    new_lines = (
+        existing_lines[:start_idx]
+        + lines_array
+        + existing_lines[start_idx + len(lines_array) :]
+    )
+
+    new_content = "\n".join(new_lines)
+    if len(new_content.encode("utf-8")) > MAX_FILE_SIZE:
+        raise ValueError(
+            f"File size exceeds limit of {MAX_FILE_SIZE / (1024*1024):.1f}MB"
+        )
+
+    file_path.write_text(new_content, encoding="utf-8")
+
+    rel_path = file_path.relative_to(base_dir)
+    return f"Successfully wrote {len(lines_array)} lines to {rel_path} starting at line {start_line}"
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension()
+def insert_lines(
+    file_path: Annotated[str, "Path to write the file"],
+    content: Annotated[str, "Content to insert"],
+    line_number: Annotated[int, "Line number (1-based) to insert after"],
+) -> str:
+    """Insert content at specific line number"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+
+    try:
+        existing_lines = file_path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File is not text readable: {rel_path}")
+
+    # Convert to 0-based indexing
+    insert_idx = line_number - 1
+
+    if insert_idx < 0:
+        raise ValueError("Line number must be >= 1")
+
+    # Insert content lines
+    content_lines = content.splitlines()
+    new_lines = (
+        existing_lines[:insert_idx] + content_lines + existing_lines[insert_idx:]
+    )
+
+    new_content = "\n".join(new_lines)
+    if len(new_content.encode("utf-8")) > MAX_FILE_SIZE:
+        raise ValueError(
+            f"File size exceeds limit of {MAX_FILE_SIZE / (1024*1024):.1f}MB"
+        )
+
+    file_path.write_text(new_content, encoding="utf-8")
+
+    rel_path = file_path.relative_to(base_dir)
+    return f"Successfully inserted {len(content_lines)} lines to {rel_path} at line {line_number}"
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension()
+def delete_lines(
+    file_path: Annotated[str, "Path to write the file"],
+    start_line: Annotated[int, "Starting line number (1-based)"],
+    end_line: Annotated[int, "Ending line number (1-based, inclusive)"],
+) -> str:
+    """Delete line ranges from a file"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+
+    try:
+        existing_lines = file_path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File is not text readable: {rel_path}")
+
+    # Convert to 0-based indexing
+    start_idx = start_line - 1
+    end_idx = end_line
+
+    if start_idx < 0 or start_line > end_line:
+        raise ValueError("Invalid line range")
+
+    if start_idx >= len(existing_lines):
+        raise ValueError(
+            f"Start line {start_line} exceeds file length ({len(existing_lines)} lines)"
+        )
+
+    # Delete lines in range
+    new_lines = existing_lines[:start_idx] + existing_lines[end_idx:]
+
+    new_content = "\n".join(new_lines)
+    file_path.write_text(new_content, encoding="utf-8")
+
+    deleted_count = end_line - start_line + 1
+    rel_path = file_path.relative_to(base_dir)
+    return f"Successfully deleted {deleted_count} lines from {rel_path} (lines {start_line}-{end_line})"
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension()
+def append_lines(
+    file_path: Annotated[str, "Path to write the file"],
+    content: Annotated[str, "Content to append"],
+) -> str:
+    """Add lines to end of file"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+
+    try:
+        existing_content = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File is not text readable: {rel_path}")
+
+    # Add newline if file doesn't end with one
+    separator = "" if existing_content.endswith("\n") else "\n"
+    new_content = existing_content + separator + content
+
+    if len(new_content.encode("utf-8")) > MAX_FILE_SIZE:
+        raise ValueError(
+            f"File size exceeds limit of {MAX_FILE_SIZE / (1024*1024):.1f}MB"
+        )
+
+    file_path.write_text(new_content, encoding="utf-8")
+
+    lines_added = len(content.splitlines())
+    rel_path = file_path.relative_to(base_dir)
+    return f"Successfully appended {lines_added} lines to {rel_path}"
+
+
+# Search & Replace operations
+@mcp.tool()
+@requires_scopes("read:files")
+@validates_path_and_extension(check_extension=False)
+def search_in_file(
+    file_path: Annotated[str, "Path to search in"],
+    pattern: Annotated[str, "Text pattern to search for"],
+    regex: Annotated[bool, "Whether to use regex pattern matching"] = False,
+) -> str:
+    """Find text/patterns in a file"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+
+    if file_path.is_dir():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"Path is a directory: {rel_path}")
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+        lines = content.splitlines()
+    except UnicodeDecodeError:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File is not text readable: {rel_path}")
+
+    matches = []
+
+    for line_num, line in enumerate(lines, 1):
+        if regex:
+            try:
+                if re.search(pattern, line):
+                    matches.append(f"{line_num}: {line}")
+            except re.error as e:
+                raise ValueError(f"Invalid regex pattern: {e}")
+        else:
+            if pattern in line:
+                matches.append(f"{line_num}: {line}")
+
+    rel_path = file_path.relative_to(base_dir)
+    if matches:
+        return f"Found {len(matches)} matches in {rel_path}:\n" + "\n".join(matches)
+    else:
+        return f"No matches found for '{pattern}' in {rel_path}"
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension()
+def replace_in_file(
+    file_path: Annotated[str, "Path to write the file"],
+    search: Annotated[str, "Text to search for"],
+    replace: Annotated[str, "Text to replace with"],
+    all: Annotated[bool, "Replace all occurrences"] = True,
+) -> str:
+    """Find and replace text in a file"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File is not text readable: {rel_path}")
+
+    # Count occurrences before replacement
+    count = content.count(search)
+    if count == 0:
+        rel_path = file_path.relative_to(base_dir)
+        return f"No occurrences of '{search}' found in {rel_path}"
+
+    # Perform replacement
+    if all:
+        new_content = content.replace(search, replace)
+        replaced_count = count
+    else:
+        new_content = content.replace(search, replace, 1)
+        replaced_count = 1
+
+    if len(new_content.encode("utf-8")) > MAX_FILE_SIZE:
+        raise ValueError(
+            f"File size exceeds limit of {MAX_FILE_SIZE / (1024*1024):.1f}MB"
+        )
+
+    file_path.write_text(new_content, encoding="utf-8")
+
+    rel_path = file_path.relative_to(base_dir)
+    return f"Successfully replaced {replaced_count} occurrence(s) of '{search}' in {rel_path}"
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension()
+def find_and_replace_lines(
+    file_path: Annotated[str, "Path to write the file"],
+    line_pattern: Annotated[str, "Pattern to match entire lines"],
+    replacement: Annotated[str, "Replacement text for matched lines"],
+) -> str:
+    """Replace entire lines that match a pattern"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+
+    try:
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File is not text readable: {rel_path}")
+
+    new_lines = []
+    replaced_count = 0
+
+    for line in lines:
+        if line_pattern in line:
+            new_lines.append(replacement)
+            replaced_count += 1
+        else:
+            new_lines.append(line)
+
+    if replaced_count == 0:
+        rel_path = file_path.relative_to(base_dir)
+        return f"No lines matching '{line_pattern}' found in {rel_path}"
+
+    new_content = "\n".join(new_lines)
+    if len(new_content.encode("utf-8")) > MAX_FILE_SIZE:
+        raise ValueError(
+            f"File size exceeds limit of {MAX_FILE_SIZE / (1024*1024):.1f}MB"
+        )
+
+    file_path.write_text(new_content, encoding="utf-8")
+
+    rel_path = file_path.relative_to(base_dir)
+    return f"Successfully replaced {replaced_count} line(s) matching '{line_pattern}' in {rel_path}"
 
 
 if __name__ == "__main__":
