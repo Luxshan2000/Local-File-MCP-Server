@@ -82,95 +82,60 @@ def requires_scopes(*required_scopes: str):
     return decorator
 
 
-def validates_path_and_extension(
-    path_param: str = "file_path", check_extension: bool = True
-):
-    """Decorator to validate file path and optionally extension"""
+def validates_paths(*path_params, check_extensions=True):
+    """Unified decorator to validate one or more file paths and optionally extensions"""
 
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Get the path value - try kwargs first, then args
-            path_value = None
-            path_index = 0
+            # If no path_params specified, default to single "file_path"
+            params_to_validate = path_params if path_params else ("file_path",)
 
-            if path_param in kwargs:
-                path_value = kwargs[path_param]
-            elif len(args) > path_index:
-                path_value = args[path_index]
-            else:
-                raise ValueError(f"Path parameter '{path_param}' not found")
+            validated_paths = {}
 
-            # Handle default "." case by using base_dir
-            if path_value == ".":
-                validated_path = base_dir
-            else:
-                # Validate and resolve path within ALLOWED_PATH base
-                validated_path = validate_path(path_value)
+            for i, path_param in enumerate(params_to_validate):
+                # Get the path value - try kwargs first, then args
+                path_value = None
 
-            # Validate extension if required
-            if check_extension and not validate_file_extension(path_value):
-                raise ValueError(
-                    f"File extension not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
-                )
+                if path_param in kwargs:
+                    path_value = kwargs[path_param]
+                elif len(args) > i:
+                    path_value = args[i]
+                else:
+                    raise ValueError(f"Path parameter '{path_param}' not found")
 
-            # Update the path in args or kwargs
-            if path_param in kwargs:
-                kwargs[path_param] = validated_path
+                # Handle default "." case by using base_dir
+                if path_value == ".":
+                    validated_path = base_dir
+                else:
+                    # Validate and resolve path within ALLOWED_PATH base
+                    validated_path = validate_path(path_value)
+
+                # Validate extension if required (skip for directories or when disabled)
+                if check_extensions and "dir" not in path_param.lower():
+                    if not validate_file_extension(path_value):
+                        raise ValueError(
+                            f"File extension not allowed for {path_param}. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+                        )
+
+                validated_paths[path_param] = validated_path
+
+            # Update paths in kwargs or args
+            if all(param in kwargs for param in params_to_validate):
+                # All parameters are in kwargs
+                for param in params_to_validate:
+                    kwargs[param] = validated_paths[param]
                 return func(*args, **kwargs)
             else:
-                new_args = (validated_path,) + args[1:]
-                return func(*new_args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def validates_two_paths(
-    source_param: str = "source_path",
-    dest_param: str = "dest_path",
-    check_extensions: bool = True,
-):
-    """Decorator to validate both source and destination paths"""
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            # Validate source path (first parameter)
-            if len(args) > 0:
-                source_value = args[0]
-            elif source_param in kwargs:
-                source_value = kwargs[source_param]
-            else:
-                raise ValueError(f"Source parameter '{source_param}' not found")
-
-            validated_source = validate_path(source_value)
-
-            # Validate destination path (second parameter)
-            if len(args) > 1:
-                dest_value = args[1]
-            elif dest_param in kwargs:
-                dest_value = kwargs[dest_param]
-            else:
-                raise ValueError(f"Destination parameter '{dest_param}' not found")
-
-            validated_dest = validate_path(dest_value)
-
-            # Validate extensions if required
-            if check_extensions:
-                if not validate_file_extension(dest_value):
-                    raise ValueError(
-                        f"Destination file extension not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+                # Some or all parameters are positional
+                new_args = tuple(
+                    (
+                        validated_paths[params_to_validate[i]]
+                        if i < len(params_to_validate)
+                        else args[i]
                     )
-
-            # Update paths in args or kwargs
-            if source_param in kwargs and dest_param in kwargs:
-                kwargs[source_param] = validated_source
-                kwargs[dest_param] = validated_dest
-                return func(*args, **kwargs)
-            else:
-                new_args = (validated_source, validated_dest) + args[2:]
+                    for i in range(len(args))
+                )
                 return func(*new_args, **kwargs)
 
         return wrapper
@@ -205,7 +170,7 @@ def validate_file_extension(file_path: str) -> bool:
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension()
+@validates_paths("file_path")
 def create_file(
     file_path: Annotated[str, "Path to create the file"],
     content: Annotated[str, "Content to write"],
@@ -230,7 +195,7 @@ def create_file(
 
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_path_and_extension(check_extension=False)
+@validates_paths("file_path", check_extensions=False)
 def read_file(file_path: Annotated[str, "Path to read the file"]) -> str:
     """Read the contents of a file"""
     # file_path is now a validated Path object
@@ -254,7 +219,7 @@ def read_file(file_path: Annotated[str, "Path to read the file"]) -> str:
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension()
+@validates_paths("file_path")
 def write_file(
     file_path: Annotated[str, "Path to write the file"],
     content: Annotated[str, "Content to write"],
@@ -278,7 +243,7 @@ def write_file(
 
 @mcp.tool()
 @requires_scopes("delete:files")
-@validates_path_and_extension(check_extension=False)
+@validates_paths("file_path", check_extensions=False)
 def delete_file(file_path: Annotated[str, "Path to delete the file"]) -> str:
     """Delete a file"""
     # file_path is now a validated Path object
@@ -299,7 +264,7 @@ def delete_file(file_path: Annotated[str, "Path to delete the file"]) -> str:
 
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_path_and_extension("directory_path", check_extension=False)
+@validates_paths("directory_path", check_extensions=False)
 def list_files(directory_path: Annotated[str, "Directory path to list"] = ".") -> str:
     """List files and directories in the given path"""
     # directory_path is now a validated Path object
@@ -328,7 +293,7 @@ def list_files(directory_path: Annotated[str, "Directory path to list"] = ".") -
 # Line-based operations
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_path_and_extension(check_extension=False)
+@validates_paths("file_path", check_extensions=False)
 def read_lines(
     file_path: Annotated[str, "Path to read the file"],
     start_line: Annotated[int, "Starting line number (1-based)"],
@@ -371,7 +336,7 @@ def read_lines(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension()
+@validates_paths("file_path")
 def write_lines(
     file_path: Annotated[str, "Path to write the file"],
     lines_array: Annotated[list, "Array of lines to write"],
@@ -415,7 +380,7 @@ def write_lines(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension()
+@validates_paths("file_path")
 def insert_lines(
     file_path: Annotated[str, "Path to write the file"],
     content: Annotated[str, "Content to insert"],
@@ -458,7 +423,7 @@ def insert_lines(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension()
+@validates_paths("file_path")
 def delete_lines(
     file_path: Annotated[str, "Path to write the file"],
     start_line: Annotated[int, "Starting line number (1-based)"],
@@ -500,7 +465,7 @@ def delete_lines(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension()
+@validates_paths("file_path")
 def append_lines(
     file_path: Annotated[str, "Path to write the file"],
     content: Annotated[str, "Content to append"],
@@ -535,7 +500,7 @@ def append_lines(
 # Search & Replace operations
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_path_and_extension(check_extension=False)
+@validates_paths("file_path", check_extensions=False)
 def search_in_file(
     file_path: Annotated[str, "Path to search in"],
     pattern: Annotated[str, "Text pattern to search for"],
@@ -579,7 +544,7 @@ def search_in_file(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension()
+@validates_paths("file_path")
 def replace_in_file(
     file_path: Annotated[str, "Path to write the file"],
     search: Annotated[str, "Text to search for"],
@@ -624,7 +589,7 @@ def replace_in_file(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension()
+@validates_paths("file_path")
 def find_and_replace_lines(
     file_path: Annotated[str, "Path to write the file"],
     line_pattern: Annotated[str, "Pattern to match entire lines"],
@@ -670,7 +635,7 @@ def find_and_replace_lines(
 # File management operations
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths()
+@validates_paths("source_path", "dest_path")
 def copy_file(
     source_path: Annotated[str, "Source file path"],
     dest_path: Annotated[str, "Destination file path"],
@@ -702,7 +667,7 @@ def copy_file(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths()
+@validates_paths("source_path", "dest_path")
 def move_file(
     source_path: Annotated[str, "Source file path"],
     dest_path: Annotated[str, "Destination file path"],
@@ -734,7 +699,7 @@ def move_file(
 
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_path_and_extension(check_extension=False)
+@validates_paths("file_path", check_extensions=False)
 def get_file_info(file_path: Annotated[str, "Path to get info for"]) -> str:
     """Get file size, modified date, and permissions"""
     if not file_path.exists():
@@ -780,7 +745,7 @@ Permissions: {perms}"""
 
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_path_and_extension(check_extension=False)
+@validates_paths("file_path", check_extensions=False)
 def file_exists(file_path: Annotated[str, "Path to check"]) -> str:
     """Check if file exists"""
     exists = file_path.exists()
@@ -796,7 +761,7 @@ def file_exists(file_path: Annotated[str, "Path to check"]) -> str:
 # Directory operations
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension("dir_path", check_extension=False)
+@validates_paths("dir_path", check_extensions=False)
 def create_directory(dir_path: Annotated[str, "Directory path to create"]) -> str:
     """Create folders"""
     if dir_path.exists():
@@ -812,7 +777,7 @@ def create_directory(dir_path: Annotated[str, "Directory path to create"]) -> st
 
 @mcp.tool()
 @requires_scopes("delete:files")
-@validates_path_and_extension("dir_path", check_extension=False)
+@validates_paths("dir_path", check_extensions=False)
 def delete_directory(
     dir_path: Annotated[str, "Directory path to delete"],
     recursive: Annotated[bool, "Delete recursively"] = False,
@@ -850,7 +815,7 @@ def delete_directory(
 
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_path_and_extension("dir_path", check_extension=False)
+@validates_paths("dir_path", check_extensions=False)
 def list_files_recursive(
     dir_path: Annotated[str, "Directory path to list recursively"],
     pattern: Annotated[str, "File pattern to match (optional)"] = None,
@@ -903,7 +868,7 @@ def list_files_recursive(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths("source_path", "dest_path", check_extensions=False)
+@validates_paths("source_path", "dest_path", check_extensions=False)
 def move_directory(
     source_path: Annotated[str, "Source directory path"],
     dest_path: Annotated[str, "Destination directory path"],
@@ -1116,7 +1081,7 @@ def batch_delete(
 
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_path_and_extension("directory", check_extension=False)
+@validates_paths("directory", check_extensions=False)
 def find_files(
     directory: Annotated[str, "Directory to search in"],
     name_pattern: Annotated[str, "File name pattern to match (glob pattern)"],
@@ -1216,7 +1181,7 @@ def find_files(
 # Diff/Comparison operations
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_two_paths("file1_path", "file2_path", check_extensions=False)
+@validates_paths("file1_path", "file2_path", check_extensions=False)
 def compare_files(
     file1_path: Annotated[str, "First file path"],
     file2_path: Annotated[str, "Second file path"],
@@ -1273,7 +1238,7 @@ Use get_file_diff() to see detailed differences."""
 
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_two_paths("file1_path", "file2_path", check_extensions=False)
+@validates_paths("file1_path", "file2_path", check_extensions=False)
 def get_file_diff(
     file1_path: Annotated[str, "First file path"],
     file2_path: Annotated[str, "Second file path"],
@@ -1358,7 +1323,7 @@ def get_file_diff(
 # Archive operations
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension("zip_path")
+@validates_paths("zip_path")
 def create_zip(
     zip_path: Annotated[str, "Path for the zip file to create"],
     source_paths: Annotated[list, "Array of file/directory paths to include"],
@@ -1413,7 +1378,7 @@ def create_zip(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension("zip_path", check_extension=False)
+@validates_paths("zip_path", check_extensions=False)
 def extract_zip(
     zip_path: Annotated[str, "Path to the zip file"],
     extract_to: Annotated[str, "Directory to extract to (optional)"] = None,
@@ -1480,7 +1445,7 @@ def extract_zip(
 # File integrity operations
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_path_and_extension(check_extension=False)
+@validates_paths("file_path", check_extensions=False)
 def get_file_hash(
     file_path: Annotated[str, "Path to calculate hash for"],
     algorithm: Annotated[
@@ -1523,7 +1488,7 @@ def get_file_hash(
 # Non-destructive writing operations
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_path_and_extension()
+@validates_paths("file_path")
 def append_to_file(
     file_path: Annotated[str, "Path to append to"],
     content: Annotated[str, "Content to append"],
@@ -1577,7 +1542,7 @@ def append_to_file(
 # File conversion operations
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths("file_path", "output_path")
+@validates_paths("file_path", "output_path")
 def convert_to_pdf(
     file_path: Annotated[str, "Source file path to convert"],
     output_path: Annotated[str, "Output PDF file path"],
@@ -1673,7 +1638,7 @@ def convert_to_pdf(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths("image_path", "output_path")
+@validates_paths("image_path", "output_path")
 def convert_image_format(
     image_path: Annotated[str, "Source image file path"],
     output_path: Annotated[str, "Output image file path"],
@@ -1732,7 +1697,7 @@ def convert_image_format(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths("csv_path", "json_path")
+@validates_paths("csv_path", "json_path")
 def csv_to_json(
     csv_path: Annotated[str, "Source CSV file path"],
     json_path: Annotated[str, "Output JSON file path"],
@@ -1786,7 +1751,7 @@ def csv_to_json(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths("json_path", "csv_path")
+@validates_paths("json_path", "csv_path")
 def json_to_csv(
     json_path: Annotated[str, "Source JSON file path"],
     csv_path: Annotated[str, "Output CSV file path"],
