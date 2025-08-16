@@ -6,7 +6,9 @@ from functools import wraps
 from fastmcp import FastMCP
 from fastmcp.server.auth import StaticTokenVerifier
 from fastmcp.server.dependencies import get_access_token
+from dotenv import load_dotenv
 
+load_dotenv()
 # Configuration from environment
 ALLOWED_PATH = os.getenv("MCP_ALLOWED_PATH", "./allowed")
 MAX_FILE_SIZE = int(os.getenv("MCP_MAX_FILE_SIZE", "10485760"))  # 10MB
