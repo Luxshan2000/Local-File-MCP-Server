@@ -15,26 +15,43 @@ from fastmcp.server.auth import StaticTokenVerifier
 ALLOWED_PATH = os.getenv("MCP_ALLOWED_PATH", "./allowed")
 MAX_FILE_SIZE = int(os.getenv("MCP_MAX_FILE_SIZE", "10485760"))  # 10MB
 ALLOWED_EXTENSIONS = os.getenv("MCP_ALLOWED_EXTENSIONS", ".txt,.json,.md,.csv,.log,.xml,.yaml,.yml,.conf,.cfg").split(",")
-MCP_API_KEY = os.getenv("MCP_API_KEY")
 
-# Define development tokens and their associated claims
-if MCP_API_KEY:
+# Multi-tier access keys
+MCP_READ_KEY = os.getenv("MCP_READ_KEY")
+MCP_WRITE_KEY = os.getenv("MCP_WRITE_KEY") 
+MCP_ADMIN_KEY = os.getenv("MCP_ADMIN_KEY")
+
+# Build token configuration
+tokens = {}
+if MCP_READ_KEY:
+    tokens[MCP_READ_KEY] = {
+        "client_id": "read-only-user",
+        "scopes": ["read:files"]
+    }
+if MCP_WRITE_KEY:
+    tokens[MCP_WRITE_KEY] = {
+        "client_id": "write-user", 
+        "scopes": ["read:files", "write:files", "edit:files"]
+    }
+if MCP_ADMIN_KEY:
+    tokens[MCP_ADMIN_KEY] = {
+        "client_id": "admin-user",
+        "scopes": ["read:files", "write:files", "edit:files", "delete:files"]
+    }
+
+# Initialize with authentication if tokens are configured
+if tokens:
     verifier = StaticTokenVerifier(
-        tokens={
-            MCP_API_KEY: {
-                "client_id": "mcp-user",
-                "scopes": ["read:files", "write:files", "delete:files"]
-            }
-        },
+        tokens=tokens,
         required_scopes=["read:files"]
     )
     mcp = FastMCP("Local File Server", auth=verifier)
-    print(f"🔐 StaticTokenVerifier authentication enabled")
-    print(f"🛡️  Token: {MCP_API_KEY}")
-    print(f"📋 Required scopes: read:files")
+    print(f"🔐 Multi-tier authentication enabled")
+    for token, config in tokens.items():
+        print(f"🛡️  {config['client_id']}: {', '.join(config['scopes'])} (Token: {token})")
 else:
     mcp = FastMCP("Local File Server")
-    print(f"⚠️  No API key - running without authentication")
+    print(f"⚠️  No API keys configured - running without authentication")
 
 # Set up base directory
 base_dir = Path(ALLOWED_PATH).resolve()
@@ -170,9 +187,9 @@ if __name__ == "__main__":
                 port = int(sys.argv[port_idx + 1])
         
         print(f"🌐 Starting FastMCP HTTP server on port {port}")
-        if MCP_API_KEY:
-            print(f"🛡️  StaticTokenVerifier enabled with Bearer token auth")
-            print(f"📋 Expected header: Authorization: Bearer {MCP_API_KEY}")
+        if tokens:
+            print(f"🛡️  Multi-tier authentication enabled")
+            print(f"📋 Configure tokens using: MCP_READ_KEY, MCP_WRITE_KEY, MCP_ADMIN_KEY")
         
         mcp.run(transport="http", port=port)
     else:

@@ -12,10 +12,18 @@ def test_fastmcp_http():
     import os
     
     base_url = "http://127.0.0.1:8082"
-    api_key = os.getenv("MCP_API_KEY", "")
     
-    print("🌐 Testing FastMCP HTTP Server")
-    print("=" * 40)
+    # Check for different access levels
+    read_key = os.getenv("MCP_READ_KEY", "")
+    write_key = os.getenv("MCP_WRITE_KEY", "")
+    admin_key = os.getenv("MCP_ADMIN_KEY", "")
+    
+    print("🌐 Testing FastMCP HTTP Server - Multi-Tier Auth")
+    print("=" * 50)
+    
+    # Test with the highest available access level
+    api_key = admin_key or write_key or read_key
+    access_level = "admin" if admin_key else "write" if write_key else "read" if read_key else "none"
     
     # Headers required for FastMCP streamable HTTP
     headers = {
@@ -26,7 +34,7 @@ def test_fastmcp_http():
     # Add Bearer token if API key is provided
     if api_key:
         headers['Authorization'] = f'Bearer {api_key}'
-        print(f"🔐 Using API key authentication")
+        print(f"🔐 Using {access_level} level authentication")
     
     try:
         # Test 1: Initialize

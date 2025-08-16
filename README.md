@@ -51,10 +51,14 @@ make run
 make run-http
 ```
 
-**For HTTP with custom Bearer token authentication:**
+**For HTTP with multi-tier Bearer token authentication:**
 ```bash
-export MCP_API_KEY="your-secure-token"
-./venv/bin/python src/fastmcp_server.py --http --auth --port 8082
+# Configure access keys with different permission levels
+export MCP_READ_KEY="readonly-token-123"
+export MCP_WRITE_KEY="readwrite-token-456" 
+export MCP_ADMIN_KEY="admin-token-789"
+
+./venv/bin/python src/fastmcp_server.py --http --port 8082
 ```
 
 ### Run Tests
@@ -117,22 +121,26 @@ For direct HTTP access without Claude Desktop, start the HTTP server:
 make run-http
 ```
 
-**Option 2: HTTP server with custom Bearer token authentication**
+**Option 2: HTTP server with multi-tier Bearer token authentication**
 ```bash
-# Set API key for authentication
-export MCP_API_KEY="your-secure-api-key"
+# Configure access keys with different permission levels
+export MCP_READ_KEY="readonly-token-123"      # Read-only access
+export MCP_WRITE_KEY="readwrite-token-456"    # Read, write, edit access  
+export MCP_ADMIN_KEY="admin-token-789"        # Full access including delete
 
-# Start HTTP server with custom authentication middleware
-./venv/bin/python src/fastmcp_server.py --http --auth --port 8082
+# Start HTTP server with multi-tier authentication
+./venv/bin/python src/fastmcp_server.py --http --port 8082
 ```
 
 Then access the server at: `http://localhost:8082/mcp` (FastMCP streamable HTTP/SSE)
 
-**Custom Authentication Middleware:**
-- The `--auth` flag enables custom Bearer token middleware that extracts and verifies API keys
-- All HTTP requests must include: `Authorization: Bearer <your-api-key>`
-- Returns 401 for missing/invalid headers, 403 for wrong tokens, 200 for valid tokens
-- Architecture: Frontend auth proxy (port 8082) → Backend FastMCP server (port 9082)
+**Multi-Tier Authentication:**
+- Supports three access levels with different scopes:
+  - **Read-only**: `MCP_READ_KEY` - View files only (`read:files`)
+  - **Read/Write**: `MCP_WRITE_KEY` - Read, write, edit files (`read:files`, `write:files`, `edit:files`)
+  - **Admin**: `MCP_ADMIN_KEY` - Full access including delete (`read:files`, `write:files`, `edit:files`, `delete:files`)
+- All HTTP requests must include: `Authorization: Bearer <your-token>`
+- Returns 401 for missing/invalid headers, 403 for insufficient permissions
 
 ## 📁 Available Tools
 
@@ -157,24 +165,27 @@ All operations are sandboxed to the `allowed/` directory for security.
 - **No Code Execution**: Pure file operations only
 - **Custom Bearer Token Authentication**: Optional middleware for HTTP requests
 
-### Custom Authentication Middleware
+### Multi-Tier Authentication System
 
-The server includes a custom authentication implementation that:
+The server supports role-based access control with three permission levels:
 
-- **Extracts Bearer tokens** from `Authorization` headers
-- **Verifies tokens** against configured `MCP_API_KEY`
-- **Returns proper HTTP status codes**:
-  - `401 Unauthorized`: Missing or malformed Authorization header
-  - `403 Forbidden`: Invalid API key
-  - `200 OK`: Valid token, request proceeds
-- **Proxy architecture**: Clean separation between auth layer and MCP server
+**Access Levels:**
+- **🔍 Read-Only** (`MCP_READ_KEY`): Can only view and list files
+- **✏️ Read/Write** (`MCP_WRITE_KEY`): Can read, create, and modify files  
+- **🔧 Admin** (`MCP_ADMIN_KEY`): Full access including file deletion
 
-**Example usage:**
+**Usage Examples:**
 ```bash
-# Test authentication
-curl -H "Authorization: Bearer your-api-key" \
+# Read-only access
+curl -H "Authorization: Bearer readonly-token-123" \
      -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{}}' \
+     -d '{"jsonrpc":"2.0","method":"tools/call","id":1,"params":{"name":"read_file","arguments":{"path":"test.txt"}}}' \
+     http://localhost:8082/mcp
+
+# Admin access (all operations)
+curl -H "Authorization: Bearer admin-token-789" \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","method":"tools/call","id":1,"params":{"name":"delete_file","arguments":{"path":"temp.txt"}}}' \
      http://localhost:8082/mcp
 ```
 
@@ -186,7 +197,11 @@ Set environment variables to customize:
 export MCP_ALLOWED_PATH="./allowed"           # Base directory
 export MCP_MAX_FILE_SIZE="10485760"           # 10MB limit  
 export MCP_ALLOWED_EXTENSIONS=".txt,.json,.md"  # Allowed file types
-export MCP_API_KEY="your-secure-key"          # API key for HTTP authentication
+
+# Multi-tier authentication keys
+export MCP_READ_KEY="readonly-token-123"      # Read-only access
+export MCP_WRITE_KEY="readwrite-token-456"    # Read/write/edit access
+export MCP_ADMIN_KEY="admin-token-789"        # Full access including delete
 ```
 
 ## 📊 Project Structure
