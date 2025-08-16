@@ -1,102 +1,70 @@
 # FastMCP File Server - Development Tools
 
-.PHONY: help install setup test run demo clean status all
+.PHONY: help setup test run run-http clean status format lint
 
 # Default target
 help:
 	@echo "FastMCP File Server - Available Commands:"
 	@echo "  help        - Show this help message"
-	@echo "  install     - Install FastMCP and dependencies"
-	@echo "  setup       - Complete setup (install + create directories)"
-	@echo "  test        - Run comprehensive test suite (stdio)"
-	@echo "  test-http   - Test HTTP server connectivity"
-	@echo "  run         - Start the FastMCP server (stdio for Claude Desktop)"
-	@echo "  run-http    - Start the FastMCP server (HTTP on port 8082)"
-	@echo "  demo        - Run interactive demo client (stdio)"
+	@echo "  setup       - Install dependencies and create directories"
+	@echo "  test        - Run test suite"
+	@echo "  run         - Start server (stdio mode)"
+	@echo "  run-http    - Start server (HTTP mode)"
+	@echo "  format      - Format code with black"
+	@echo "  lint        - Check code with ruff"
+	@echo "  lint-fix    - Fix linting issues"
 	@echo "  clean       - Clean up temporary files"
 	@echo "  status      - Show project status"
-	@echo "  all         - Run setup + test + demo"
-
-# Install FastMCP
-install:
-	@echo "🔧 Setting up FastMCP File Server..."
-	@if [ ! -d "venv" ]; then \
-		echo "Creating virtual environment..."; \
-		python3 -m venv venv; \
-	fi
-	@echo "Installing FastMCP..."
-	./venv/bin/pip install --upgrade pip
-	./venv/bin/pip install fastmcp
-	@echo "✅ FastMCP installed successfully!"
 
 # Complete setup
-setup: install
-	@echo "🚀 Setting up directories..."
+setup:
+	@echo "Setting up FastMCP File Server..."
+	uv sync
 	@mkdir -p allowed
 	@touch allowed/.gitkeep
-	@echo "✅ Setup complete! Ready to use."
+	@echo "Setup complete! Ready to use."
 
-# Run comprehensive tests
+# Run tests
 test:
-	@echo "🧪 Running FastMCP test suite..."
-	@if [ -d "venv" ]; then \
-		./venv/bin/python tests/test_fastmcp_server.py; \
-	else \
-		echo "❌ Virtual environment not found. Run 'make install' first."; \
-	fi
+	@echo "Running test suite..."
+	uv run -m pytest tests/
 
-# Start the FastMCP server (stdio for Claude Desktop)
+# Start server (stdio)
 run:
-	@echo "🚀 Starting FastMCP File Server (stdio)..."
-	@if [ -d "venv" ]; then \
-		./venv/bin/python src/fastmcp_server.py; \
-	else \
-		echo "❌ Virtual environment not found. Run 'make install' first."; \
-	fi
+	@echo "Starting FastMCP File Server (stdio)..."
+	uv run src/fastmcp_server.py
 
-# Start the FastMCP server via HTTP
+# Start server (HTTP)
 run-http:
-	@echo "🌐 Starting FastMCP File Server (HTTP on port 8082)..."
-	@if [ -d "venv" ]; then \
-		./venv/bin/python src/fastmcp_server.py --http --port 8082; \
-	else \
-		echo "❌ Virtual environment not found. Run 'make install' first."; \
-	fi
+	@echo "Starting FastMCP File Server (HTTP)..."
+	uv run src/fastmcp_server.py --http
 
-# Run demo client (stdio)
-demo:
-	@echo "🎮 Running demo client (stdio)..."
-	@if [ -d "venv" ]; then \
-		cd scripts && ../venv/bin/python test_client.py; \
-	else \
-		echo "❌ Virtual environment not found. Run 'make install' first."; \
-	fi
+# Format code
+format:
+	@echo "Formatting code..."
+	uv run black src/ tests/
 
-# Test HTTP server (requires server to be running)
-test-http:
-	@echo "🌐 Testing HTTP server (make sure to run 'make run-http' first)..."
-	@if [ -d "venv" ]; then \
-		./venv/bin/python scripts/test_http_client.py; \
-	else \
-		echo "❌ Virtual environment not found. Run 'make install' first."; \
-	fi
+# Lint code
+lint:
+	@echo "Checking code..."
+	uv run ruff check src/ tests/
+
+# Fix linting issues
+lint-fix:
+	@echo "Fixing linting issues..."
+	uv run ruff check --fix src/ tests/
 
 # Clean temporary files
 clean:
-	@echo "🧹 Cleaning up..."
-	rm -rf __pycache__ src/__pycache__ tests/__pycache__ scripts/__pycache__
-	rm -rf .pytest_cache *.pyc
+	@echo "Cleaning up..."
+	rm -rf __pycache__ src/__pycache__ tests/__pycache__
+	rm -rf .pytest_cache *.pyc .uv_cache
 	find allowed/ -name "*.txt" -o -name "*.json" -o -name "*.md" | grep -v ".gitkeep" | xargs rm -f 2>/dev/null || true
-	@echo "✅ Cleanup complete!"
+	@echo "Cleanup complete!"
 
 # Show project status
 status:
-	@echo "📊 FastMCP File Server Status:"
-	@echo "Virtual Environment: $$([ -d venv ] && echo '✅ Exists' || echo '❌ Missing (run make install)')"
-	@echo "FastMCP Installed: $$([ -f venv/bin/python ] && ./venv/bin/python -c 'import fastmcp; print("✅ Ready")' 2>/dev/null || echo '❌ Missing (run make install)')"
-	@echo "Allowed Directory: $$([ -d allowed ] && echo '✅ allowed/' || echo '❌ Missing (run make setup)')"
-	@echo "Server File: $$([ -f src/fastmcp_server.py ] && echo '✅ src/fastmcp_server.py' || echo '❌ Missing')"
-
-# Run everything
-all: setup test demo
-	@echo "🎉 All tasks completed successfully!"
+	@echo "FastMCP File Server Status:"
+	@echo "Dependencies: $$(uv sync --dry-run >/dev/null 2>&1 && echo 'Ready' || echo 'Missing (run make setup)')"
+	@echo "Allowed Directory: $$([ -d allowed ] && echo 'allowed/' || echo 'Missing (run make setup)')"
+	@echo "Server File: $$([ -f src/fastmcp_server.py ] && echo 'src/fastmcp_server.py' || echo 'Missing')"

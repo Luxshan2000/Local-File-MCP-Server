@@ -26,12 +26,14 @@ All operations are restricted to a safe directory to protect your system.
 
 1. Install dependencies:
 ```bash
-make setup
+uv sync
 ```
 
 2. Start the server:
 ```bash
-make run
+uv run server          # stdio mode
+# or
+uv run server-http     # HTTP mode
 ```
 
 ## Claude Desktop Integration
@@ -46,9 +48,12 @@ make run
 {
   "mcpServers": {
     "local-file-server": {
-      "command": "/absolute/path/to/local_file_mcp_server/venv/bin/python",
+      "command": "uv",
       "args": [
-        "/absolute/path/to/local_file_mcp_server/src/fastmcp_server.py"
+        "run",
+        "--directory",
+        "/absolute/path/to/local_file_mcp_server",
+        "src/fastmcp_server.py"
       ],
       "env": {
         "MCP_ALLOWED_PATH": "/absolute/path/to/local_file_mcp_server/allowed"
@@ -63,7 +68,7 @@ make run
 First start the HTTP server:
 ```bash
 export MCP_ADMIN_KEY="your-secret-token"
-make run-http
+uv run server-http
 ```
 
 **If your environment supports HTTP directly:**
@@ -109,11 +114,12 @@ For web-based AI systems, expose the HTTP server publicly:
 
 ```bash
 # Start HTTP server with authentication
-export MCP_ADMIN_KEY="your-secret-token" 
-make run-http
+export MCP_ADMIN_KEY="your-secret-token"
+export MCP_HTTP_PORT=8082
+uv run server-http
 
 # In another terminal, expose via ngrok
-ngrok http 8082
+ngrok http $MCP_HTTP_PORT
 ```
 
 Then use the ngrok URL (e.g., `https://abc123.ngrok.io/mcp`) in your web-based AI system with:
@@ -143,17 +149,31 @@ You can customize the server by setting environment variables before starting:
 
 ```bash
 export MCP_ALLOWED_PATH="./my-files"          # Change the safe directory
+export MCP_HTTP_PORT=8082                     # HTTP server port
 export MCP_ADMIN_KEY="your-secret-token"     # Enable HTTP authentication
+```
+
+## Development
+
+Available uv scripts for development:
+
+```bash
+uv run server          # Start server (stdio mode)
+uv run server-http     # Start server (HTTP mode)
+uv run test            # Run tests
+uv run format          # Format code with black
+uv run lint            # Check code with ruff
+uv run lint-fix        # Fix linting issues
 ```
 
 ## Troubleshooting
 
 **Server won't start:**
 ```bash
-make setup   # Reinstall dependencies
+uv sync   # Reinstall dependencies
 ```
 
 **Claude Desktop not connecting:**
 1. Check that all paths in the configuration are absolute (full paths)
 2. Restart Claude Desktop after changing configuration
-3. Verify the server starts without errors using `make run`
+3. Verify the server starts without errors using `uv run src/fastmcp_server.py`
