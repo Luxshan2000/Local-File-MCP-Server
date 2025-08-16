@@ -4,13 +4,14 @@ A versatile secure file server that provides AI assistants with safe file operat
 
 ## What it does
 
-This server provides AI assistants with secure file operations:
-- Create and edit text files
-- Read file contents and specific line ranges
-- Delete files and line ranges
-- List directory contents
+This server provides AI assistants with comprehensive file operations:
+- Create, read, write, and delete files
+- Copy, move, and rename files and directories
+- Read specific line ranges and manipulate lines
 - Search and replace text within files
-- Insert, append, and manipulate lines
+- Get file information (size, date, permissions)
+- Create and manage directories
+- Recursive directory listings with pattern matching
 
 **Connection Modes:**
 - **stdio** - Direct integration with Claude Desktop

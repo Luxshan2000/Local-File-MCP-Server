@@ -1,5 +1,8 @@
 import os
 import re
+import shutil
+import stat
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 from functools import wraps
@@ -112,6 +115,57 @@ def validates_path_and_extension(
                 return func(*args, **kwargs)
             else:
                 new_args = (validated_path,) + args[1:]
+                return func(*new_args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def validates_two_paths(
+    source_param: str = "source_path",
+    dest_param: str = "dest_path",
+    check_extensions: bool = True,
+):
+    """Decorator to validate both source and destination paths"""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Validate source path (first parameter)
+            if len(args) > 0:
+                source_value = args[0]
+            elif source_param in kwargs:
+                source_value = kwargs[source_param]
+            else:
+                raise ValueError(f"Source parameter '{source_param}' not found")
+
+            validated_source = validate_path(source_value)
+
+            # Validate destination path (second parameter)
+            if len(args) > 1:
+                dest_value = args[1]
+            elif dest_param in kwargs:
+                dest_value = kwargs[dest_param]
+            else:
+                raise ValueError(f"Destination parameter '{dest_param}' not found")
+
+            validated_dest = validate_path(dest_value)
+
+            # Validate extensions if required
+            if check_extensions:
+                if not validate_file_extension(dest_value):
+                    raise ValueError(
+                        f"Destination file extension not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+                    )
+
+            # Update paths in args or kwargs
+            if source_param in kwargs and dest_param in kwargs:
+                kwargs[source_param] = validated_source
+                kwargs[dest_param] = validated_dest
+                return func(*args, **kwargs)
+            else:
+                new_args = (validated_source, validated_dest) + args[2:]
                 return func(*new_args, **kwargs)
 
         return wrapper
@@ -606,6 +660,272 @@ def find_and_replace_lines(
 
     rel_path = file_path.relative_to(base_dir)
     return f"Successfully replaced {replaced_count} line(s) matching '{line_pattern}' in {rel_path}"
+
+
+# File management operations
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_two_paths()
+def copy_file(
+    source_path: Annotated[str, "Source file path"],
+    dest_path: Annotated[str, "Destination file path"],
+) -> str:
+    """Copy files"""
+    # Both paths are now validated Path objects
+    if not source_path.exists():
+        rel_source = source_path.relative_to(base_dir)
+        raise ValueError(f"Source file does not exist: {rel_source}")
+
+    if source_path.is_dir():
+        rel_source = source_path.relative_to(base_dir)
+        raise ValueError(f"Source is a directory: {rel_source}")
+
+    if dest_path.exists():
+        rel_dest = dest_path.relative_to(base_dir)
+        raise ValueError(f"Destination already exists: {rel_dest}")
+
+    # Create destination directory if needed
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Copy file
+    shutil.copy2(source_path, dest_path)
+
+    rel_source = source_path.relative_to(base_dir)
+    rel_dest = dest_path.relative_to(base_dir)
+    return f"Successfully copied {rel_source} to {rel_dest}"
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_two_paths()
+def move_file(
+    source_path: Annotated[str, "Source file path"],
+    dest_path: Annotated[str, "Destination file path"],
+) -> str:
+    """Move/rename files"""
+    # Both paths are now validated Path objects
+    if not source_path.exists():
+        rel_source = source_path.relative_to(base_dir)
+        raise ValueError(f"Source file does not exist: {rel_source}")
+
+    if source_path.is_dir():
+        rel_source = source_path.relative_to(base_dir)
+        raise ValueError(f"Source is a directory: {rel_source}")
+
+    if dest_path.exists():
+        rel_dest = dest_path.relative_to(base_dir)
+        raise ValueError(f"Destination already exists: {rel_dest}")
+
+    # Create destination directory if needed
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Move file
+    shutil.move(source_path, dest_path)
+
+    rel_source = source_path.relative_to(base_dir)
+    rel_dest = dest_path.relative_to(base_dir)
+    return f"Successfully moved {rel_source} to {rel_dest}"
+
+
+@mcp.tool()
+@requires_scopes("read:files")
+@validates_path_and_extension(check_extension=False)
+def get_file_info(file_path: Annotated[str, "Path to get info for"]) -> str:
+    """Get file size, modified date, and permissions"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+
+    try:
+        stat_info = file_path.stat()
+        rel_path = file_path.relative_to(base_dir)
+
+        # File type
+        file_type = "directory" if file_path.is_dir() else "file"
+
+        # Size
+        if file_path.is_file():
+            size = stat_info.st_size
+            size_str = f"{size} bytes"
+            if size > 1024:
+                size_str += f" ({size / 1024:.1f} KB)"
+            if size > 1024 * 1024:
+                size_str += f" ({size / (1024 * 1024):.1f} MB)"
+        else:
+            size_str = "N/A (directory)"
+
+        # Modified time
+        modified_time = datetime.fromtimestamp(stat_info.st_mtime)
+        modified_str = modified_time.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Permissions
+        mode = stat_info.st_mode
+        perms = stat.filemode(mode)
+
+        return f"""File info for {rel_path}:
+Type: {file_type}
+Size: {size_str}
+Modified: {modified_str}
+Permissions: {perms}"""
+
+    except Exception as e:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"Cannot get info for {rel_path}: {e}")
+
+
+@mcp.tool()
+@requires_scopes("read:files")
+@validates_path_and_extension(check_extension=False)
+def file_exists(file_path: Annotated[str, "Path to check"]) -> str:
+    """Check if file exists"""
+    exists = file_path.exists()
+    rel_path = file_path.relative_to(base_dir)
+
+    if exists:
+        file_type = "directory" if file_path.is_dir() else "file"
+        return f"{rel_path} exists ({file_type})"
+    else:
+        return f"{rel_path} does not exist"
+
+
+# Directory operations
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension("dir_path", check_extension=False)
+def create_directory(dir_path: Annotated[str, "Directory path to create"]) -> str:
+    """Create folders"""
+    if dir_path.exists():
+        rel_path = dir_path.relative_to(base_dir)
+        raise ValueError(f"Directory already exists: {rel_path}")
+
+    # Create directory
+    dir_path.mkdir(parents=True, exist_ok=True)
+
+    rel_path = dir_path.relative_to(base_dir)
+    return f"Successfully created directory: {rel_path}"
+
+
+@mcp.tool()
+@requires_scopes("delete:files")
+@validates_path_and_extension("dir_path", check_extension=False)
+def delete_directory(
+    dir_path: Annotated[str, "Directory path to delete"],
+    recursive: Annotated[bool, "Delete recursively"] = False,
+) -> str:
+    """Remove folders"""
+    if not dir_path.exists():
+        rel_path = dir_path.relative_to(base_dir)
+        raise ValueError(f"Directory does not exist: {rel_path}")
+
+    if not dir_path.is_dir():
+        rel_path = dir_path.relative_to(base_dir)
+        raise ValueError(f"Path is not a directory: {rel_path}")
+
+    # Check if directory is empty for non-recursive delete
+    if not recursive:
+        try:
+            contents = list(dir_path.iterdir())
+            if contents:
+                rel_path = dir_path.relative_to(base_dir)
+                raise ValueError(
+                    f"Directory not empty: {rel_path}. Use recursive=true to force delete"
+                )
+        except OSError:
+            pass
+
+    # Delete directory
+    if recursive:
+        shutil.rmtree(dir_path)
+    else:
+        dir_path.rmdir()
+
+    rel_path = dir_path.relative_to(base_dir)
+    return f"Successfully deleted directory: {rel_path}"
+
+
+@mcp.tool()
+@requires_scopes("read:files")
+@validates_path_and_extension("dir_path", check_extension=False)
+def list_files_recursive(
+    dir_path: Annotated[str, "Directory path to list recursively"],
+    pattern: Annotated[str, "File pattern to match (optional)"] = None,
+) -> str:
+    """Deep directory listing with optional pattern matching"""
+    if not dir_path.exists():
+        rel_path = dir_path.relative_to(base_dir)
+        raise ValueError(f"Directory does not exist: {rel_path}")
+
+    if not dir_path.is_dir():
+        rel_path = dir_path.relative_to(base_dir)
+        raise ValueError(f"Path is not a directory: {rel_path}")
+
+    items = []
+
+    # Walk through directory recursively
+    for item in dir_path.rglob("*"):
+        rel_path = item.relative_to(base_dir)
+
+        # Apply pattern filter if provided
+        if pattern and not item.match(pattern):
+            continue
+
+        item_type = "directory" if item.is_dir() else "file"
+
+        # Add size info for files
+        if item.is_file():
+            try:
+                size = item.stat().st_size
+                if size > 1024 * 1024:
+                    size_str = f" ({size / (1024 * 1024):.1f}MB)"
+                elif size > 1024:
+                    size_str = f" ({size / 1024:.1f}KB)"
+                else:
+                    size_str = f" ({size}B)"
+                items.append(f"{item_type}: {rel_path}{size_str}")
+            except (OSError, ValueError):
+                items.append(f"{item_type}: {rel_path}")
+        else:
+            items.append(f"{item_type}: {rel_path}/")
+
+    base_rel = dir_path.relative_to(base_dir) if dir_path != base_dir else "."
+    pattern_str = f" (pattern: {pattern})" if pattern else ""
+
+    if items:
+        return f"Recursive listing of {base_rel}{pattern_str}:\n" + "\n".join(items)
+    else:
+        return f"No items found in {base_rel}{pattern_str}"
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_two_paths("source_path", "dest_path", check_extensions=False)
+def move_directory(
+    source_path: Annotated[str, "Source directory path"],
+    dest_path: Annotated[str, "Destination directory path"],
+) -> str:
+    """Move folders"""
+    # Both paths are now validated Path objects
+    if not source_path.exists():
+        rel_source = source_path.relative_to(base_dir)
+        raise ValueError(f"Source directory does not exist: {rel_source}")
+
+    if not source_path.is_dir():
+        rel_source = source_path.relative_to(base_dir)
+        raise ValueError(f"Source is not a directory: {rel_source}")
+
+    if dest_path.exists():
+        rel_dest = dest_path.relative_to(base_dir)
+        raise ValueError(f"Destination already exists: {rel_dest}")
+
+    # Create parent directory if needed
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Move directory
+    shutil.move(source_path, dest_path)
+
+    rel_source = source_path.relative_to(base_dir)
+    rel_dest = dest_path.relative_to(base_dir)
+    return f"Successfully moved directory {rel_source} to {rel_dest}"
 
 
 if __name__ == "__main__":
