@@ -1,13 +1,6 @@
-#!/usr/bin/env python3
-"""
-Test suite for FastMCP File Server
-"""
-
 import asyncio
 import json
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 
@@ -96,11 +89,11 @@ async def test_server_initialization():
         # Send initialized notification
         await client.send_notification("notifications/initialized")
         
-        print("✅ Server initialization test passed")
+        print("Server initialization test passed")
         return True
         
     except Exception as e:
-        print(f"❌ Server initialization test failed: {e}")
+        print(f"Server initialization test failed: {e}")
         return False
     
     finally:
@@ -133,11 +126,11 @@ async def test_tools_list():
         for expected_tool in expected_tools:
             assert expected_tool in tool_names, f"Missing tool: {expected_tool}"
         
-        print("✅ Tools list test passed")
+        print("Tools list test passed")
         return True
         
     except Exception as e:
-        print(f"❌ Tools list test failed: {e}")
+        print(f"Tools list test failed: {e}")
         return False
     
     finally:
@@ -223,11 +216,11 @@ async def test_file_operations():
         assert "result" in delete_response
         assert "Successfully deleted" in delete_response["result"]["content"][0]["text"]
         
-        print("✅ File operations test passed")
+        print("File operations test passed")
         return True
         
     except Exception as e:
-        print(f"❌ File operations test failed: {e}")
+        print(f"File operations test failed: {e}")
         return False
     
     finally:
@@ -267,11 +260,11 @@ async def test_error_handling():
         })
         assert "error" in traversal_response or "outside allowed directory" in str(traversal_response)
         
-        print("✅ Error handling test passed")
+        print("Error handling test passed")
         return True
         
     except Exception as e:
-        print(f"❌ Error handling test failed: {e}")
+        print(f"Error handling test failed: {e}")
         return False
     
     finally:
@@ -280,8 +273,8 @@ async def test_error_handling():
 
 async def run_all_tests():
     """Run all tests"""
-    print("🧪 Running FastMCP Server Test Suite")
-    print("=" * 50)
+    print("Running FastMCP Server Test Suite")
+    print("=" * 40)
     
     tests = [
         test_server_initialization,
@@ -298,13 +291,13 @@ async def run_all_tests():
             passed += 1
         print()  # Add spacing between tests
     
-    print(f"🏁 Test Results: {passed}/{total} tests passed")
+    print(f"Test Results: {passed}/{total} tests passed")
     
     if passed == total:
-        print("🎉 All tests passed!")
+        print("All tests passed!")
         return True
     else:
-        print("❌ Some tests failed!")
+        print("Some tests failed!")
         return False
 
 

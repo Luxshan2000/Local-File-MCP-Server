@@ -1,12 +1,6 @@
-#!/usr/bin/env python3
-"""
-MCP File Server using FastMCP - Much simpler implementation!
-Provides secure file operations within a sandboxed directory
-"""
-
 import os
 from pathlib import Path
-from typing import Annotated, List
+from typing import Annotated
 from functools import wraps
 
 from fastmcp import FastMCP
@@ -19,9 +13,9 @@ MAX_FILE_SIZE = int(os.getenv("MCP_MAX_FILE_SIZE", "10485760"))  # 10MB
 ALLOWED_EXTENSIONS = os.getenv("MCP_ALLOWED_EXTENSIONS", ".txt,.json,.md,.csv,.log,.xml,.yaml,.yml,.conf,.cfg").split(",")
 
 # Multi-tier access keys
-MCP_READ_KEY = os.getenv("MCP_READ_KEY",'test-read')
-MCP_WRITE_KEY = os.getenv("MCP_WRITE_KEY",'test-write') 
-MCP_ADMIN_KEY = os.getenv("MCP_ADMIN_KEY",'test-admin')
+MCP_READ_KEY = os.getenv("MCP_READ_KEY")
+MCP_WRITE_KEY = os.getenv("MCP_WRITE_KEY") 
+MCP_ADMIN_KEY = os.getenv("MCP_ADMIN_KEY")
 
 # Build token configuration
 tokens = {}
@@ -48,12 +42,8 @@ if tokens:
         required_scopes=["read:files"]
     )
     mcp = FastMCP("Local File Server", auth=verifier)
-    print(f"🔐 Multi-tier authentication enabled")
-    for token, config in tokens.items():
-        print(f"🛡️  {config['client_id']}: {', '.join(config['scopes'])} (Token: {token})")
 else:
     mcp = FastMCP("Local File Server")
-    print(f"⚠️  No API keys configured - running without authentication")
 
 # Set up base directory
 base_dir = Path(ALLOWED_PATH).resolve()
@@ -114,9 +104,9 @@ def validates_path_and_extension(path_param: str = "file_path", check_extension:
         return wrapper
     return decorator
 
-print(f"🚀 FastMCP File Server initialized")
-print(f"📁 Base directory: {base_dir}")
-print(f"📝 Max file size: {MAX_FILE_SIZE / (1024*1024):.1f}MB")
+print(f"FastMCP File Server initialized")
+print(f"Base directory: {base_dir}")
+print(f"Max file size: {MAX_FILE_SIZE / (1024*1024):.1f}MB")
 
 
 def validate_path(file_path: str) -> Path:
@@ -258,10 +248,10 @@ if __name__ == "__main__":
             if port_idx + 1 < len(sys.argv):
                 port = int(sys.argv[port_idx + 1])
         
-        print(f"🌐 Starting FastMCP HTTP server on port {port}")
+        print(f"Starting FastMCP HTTP server on port {port}")
         if tokens:
-            print(f"🛡️  Multi-tier authentication enabled")
-            print(f"📋 Configure tokens using: MCP_READ_KEY, MCP_WRITE_KEY, MCP_ADMIN_KEY")
+            print("Multi-tier authentication enabled")
+            print("Configure tokens using: MCP_READ_KEY, MCP_WRITE_KEY, MCP_ADMIN_KEY")
         
         mcp.run(transport="http", port=port)
     else:

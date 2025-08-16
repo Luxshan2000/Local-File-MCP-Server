@@ -1,2 +1,0 @@
-# This file ensures the allowed/ directory is tracked by git
-# while keeping user files private (see .gitignore)

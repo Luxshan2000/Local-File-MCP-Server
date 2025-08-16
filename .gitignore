@@ -48,7 +48,6 @@ logs/
 
 # Allowed directory may contain user files
 allowed/*
-!allowed/.gitkeep
 
 # macOS
 .DS_Store
