@@ -18,6 +18,9 @@ This server provides AI assistants with comprehensive file operations:
 - Archive operations (create and extract ZIP files)
 - File integrity verification with multiple hash algorithms
 - Non-destructive file appending
+- Document conversion (text to PDF)
+- Image format conversion (JPEG, PNG, BMP, GIF, TIFF)
+- Data format conversion (CSV ↔ JSON)
 
 **Connection Modes:**
 - **stdio** - Direct integration with Claude Desktop
@@ -159,6 +162,9 @@ Once configured, you can ask Claude to:
 - "Extract the data.zip file to the imports/ directory"
 - "Calculate the SHA256 hash of important_file.pdf"
 - "Append this log entry to server.log without overwriting"
+- "Convert my report.txt to a PDF document"
+- "Convert screenshot.png to JPEG format"
+- "Convert data.csv to JSON format for the API"
 
 ## Security
 

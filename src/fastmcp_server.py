@@ -4,6 +4,8 @@ import shutil
 import stat
 import zipfile
 import hashlib
+import csv
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -1525,6 +1527,287 @@ def append_to_file(
     except Exception as e:
         rel_path = file_path.relative_to(base_dir)
         raise ValueError(f"Cannot append to {rel_path}: {e}")
+
+
+# File conversion operations
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_two_paths()
+def convert_to_pdf(
+    file_path: Annotated[str, "Source file path to convert"],
+    output_path: Annotated[str, "Output PDF file path"],
+) -> str:
+    """Convert text documents to PDF"""
+    # Both paths are now validated Path objects
+    if not file_path.exists():
+        rel_source = file_path.relative_to(base_dir)
+        raise ValueError(f"Source file does not exist: {rel_source}")
+    
+    if file_path.is_dir():
+        rel_source = file_path.relative_to(base_dir)
+        raise ValueError(f"Source is a directory: {rel_source}")
+    
+    if not output_path.suffix.lower() == '.pdf':
+        rel_output = output_path.relative_to(base_dir)
+        raise ValueError(f"Output file must have .pdf extension: {rel_output}")
+    
+    if output_path.exists():
+        rel_output = output_path.relative_to(base_dir)
+        raise ValueError(f"Output file already exists: {rel_output}")
+    
+    try:
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.units import inch
+        
+        # Read source content
+        content = file_path.read_text(encoding="utf-8")
+        lines = content.splitlines()
+        
+        # Create destination directory if needed
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Create PDF
+        c = canvas.Canvas(str(output_path), pagesize=letter)
+        width, height = letter
+        
+        # Set up text formatting
+        c.setFont("Helvetica", 10)
+        line_height = 12
+        margin = inch
+        y_position = height - margin
+        
+        for line in lines:
+            # Check if we need a new page
+            if y_position < margin:
+                c.showPage()
+                c.setFont("Helvetica", 10)
+                y_position = height - margin
+            
+            # Handle long lines by wrapping
+            if len(line) > 80:
+                words = line.split()
+                current_line = ""
+                for word in words:
+                    if len(current_line + " " + word) > 80:
+                        c.drawString(margin, y_position, current_line)
+                        y_position -= line_height
+                        current_line = word
+                        if y_position < margin:
+                            c.showPage()
+                            c.setFont("Helvetica", 10)
+                            y_position = height - margin
+                    else:
+                        current_line = current_line + " " + word if current_line else word
+                
+                if current_line:
+                    c.drawString(margin, y_position, current_line)
+                    y_position -= line_height
+            else:
+                c.drawString(margin, y_position, line)
+                y_position -= line_height
+        
+        c.save()
+        
+        pdf_size = output_path.stat().st_size
+        rel_source = file_path.relative_to(base_dir)
+        rel_output = output_path.relative_to(base_dir)
+        
+        return f"Successfully converted {rel_source} to PDF: {rel_output} ({pdf_size} bytes)"
+        
+    except ImportError:
+        raise ValueError("PDF conversion requires reportlab: uv add reportlab")
+    except UnicodeDecodeError:
+        rel_source = file_path.relative_to(base_dir)
+        raise ValueError(f"Source file is not text readable: {rel_source}")
+    except Exception as e:
+        raise ValueError(f"PDF conversion failed: {e}")
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_two_paths()
+def convert_image_format(
+    image_path: Annotated[str, "Source image file path"],
+    output_path: Annotated[str, "Output image file path"],
+    format: Annotated[str, "Output format: 'JPEG', 'PNG', 'BMP', 'GIF', 'TIFF'"],
+) -> str:
+    """Convert image between different formats"""
+    # Both paths are now validated Path objects
+    if not image_path.exists():
+        rel_source = image_path.relative_to(base_dir)
+        raise ValueError(f"Source image does not exist: {rel_source}")
+    
+    if image_path.is_dir():
+        rel_source = image_path.relative_to(base_dir)
+        raise ValueError(f"Source is a directory: {rel_source}")
+    
+    if output_path.exists():
+        rel_output = output_path.relative_to(base_dir)
+        raise ValueError(f"Output file already exists: {rel_output}")
+    
+    # Validate format
+    valid_formats = ['JPEG', 'PNG', 'BMP', 'GIF', 'TIFF']
+    format_upper = format.upper()
+    if format_upper not in valid_formats:
+        raise ValueError(f"Invalid format. Use: {', '.join(valid_formats)}")
+    
+    try:
+        from PIL import Image
+        
+        # Open and convert image
+        with Image.open(image_path) as img:
+            # Handle different format requirements
+            if format_upper == 'JPEG' and img.mode in ('RGBA', 'LA', 'P'):
+                # Convert to RGB for JPEG
+                img = img.convert('RGB')
+            elif format_upper == 'PNG' and img.mode == 'CMYK':
+                # Convert CMYK to RGB for PNG
+                img = img.convert('RGB')
+            
+            # Create destination directory if needed
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Save in new format
+            img.save(output_path, format=format_upper)
+        
+        output_size = output_path.stat().st_size
+        rel_source = image_path.relative_to(base_dir)
+        rel_output = output_path.relative_to(base_dir)
+        
+        return f"Successfully converted {rel_source} to {format_upper}: {rel_output} ({output_size} bytes)"
+        
+    except ImportError:
+        raise ValueError("Image conversion requires Pillow: uv add pillow")
+    except Exception as e:
+        raise ValueError(f"Image conversion failed: {e}")
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_two_paths()
+def csv_to_json(
+    csv_path: Annotated[str, "Source CSV file path"],
+    json_path: Annotated[str, "Output JSON file path"],
+) -> str:
+    """Convert CSV file to JSON format"""
+    # Both paths are now validated Path objects
+    if not csv_path.exists():
+        rel_source = csv_path.relative_to(base_dir)
+        raise ValueError(f"CSV file does not exist: {rel_source}")
+    
+    if csv_path.is_dir():
+        rel_source = csv_path.relative_to(base_dir)
+        raise ValueError(f"Source is a directory: {rel_source}")
+    
+    if not csv_path.suffix.lower() == '.csv':
+        rel_source = csv_path.relative_to(base_dir)
+        raise ValueError(f"Source file must be .csv: {rel_source}")
+    
+    if not json_path.suffix.lower() == '.json':
+        rel_output = json_path.relative_to(base_dir)
+        raise ValueError(f"Output file must be .json: {rel_output}")
+    
+    if json_path.exists():
+        rel_output = json_path.relative_to(base_dir)
+        raise ValueError(f"Output file already exists: {rel_output}")
+    
+    try:
+        # Read CSV and convert to JSON
+        data = []
+        with open(csv_path, 'r', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                data.append(row)
+        
+        # Create destination directory if needed
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Write JSON
+        with open(json_path, 'w', encoding='utf-8') as jsonfile:
+            json.dump(data, jsonfile, indent=2, ensure_ascii=False)
+        
+        output_size = json_path.stat().st_size
+        rel_source = csv_path.relative_to(base_dir)
+        rel_output = json_path.relative_to(base_dir)
+        
+        return f"Successfully converted {rel_source} to JSON: {rel_output} ({len(data)} records, {output_size} bytes)"
+        
+    except Exception as e:
+        raise ValueError(f"CSV to JSON conversion failed: {e}")
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_two_paths()
+def json_to_csv(
+    json_path: Annotated[str, "Source JSON file path"],
+    csv_path: Annotated[str, "Output CSV file path"],
+) -> str:
+    """Convert JSON file to CSV format"""
+    # Both paths are now validated Path objects
+    if not json_path.exists():
+        rel_source = json_path.relative_to(base_dir)
+        raise ValueError(f"JSON file does not exist: {rel_source}")
+    
+    if json_path.is_dir():
+        rel_source = json_path.relative_to(base_dir)
+        raise ValueError(f"Source is a directory: {rel_source}")
+    
+    if not json_path.suffix.lower() == '.json':
+        rel_source = json_path.relative_to(base_dir)
+        raise ValueError(f"Source file must be .json: {rel_source}")
+    
+    if not csv_path.suffix.lower() == '.csv':
+        rel_output = csv_path.relative_to(base_dir)
+        raise ValueError(f"Output file must be .csv: {rel_output}")
+    
+    if csv_path.exists():
+        rel_output = csv_path.relative_to(base_dir)
+        raise ValueError(f"Output file already exists: {rel_output}")
+    
+    try:
+        # Read JSON data
+        with open(json_path, 'r', encoding='utf-8') as jsonfile:
+            data = json.load(jsonfile)
+        
+        # Validate JSON structure for CSV conversion
+        if not isinstance(data, list):
+            raise ValueError("JSON must be an array of objects for CSV conversion")
+        
+        if not data:
+            raise ValueError("JSON array is empty")
+        
+        if not all(isinstance(item, dict) for item in data):
+            raise ValueError("All items in JSON array must be objects")
+        
+        # Get all unique keys from all records
+        all_keys = set()
+        for item in data:
+            all_keys.update(item.keys())
+        
+        fieldnames = sorted(all_keys)
+        
+        # Create destination directory if needed
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Write CSV
+        with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(data)
+        
+        output_size = csv_path.stat().st_size
+        rel_source = json_path.relative_to(base_dir)
+        rel_output = csv_path.relative_to(base_dir)
+        
+        return f"Successfully converted {rel_source} to CSV: {rel_output} ({len(data)} records, {len(fieldnames)} columns, {output_size} bytes)"
+        
+    except json.JSONDecodeError as e:
+        rel_source = json_path.relative_to(base_dir)
+        raise ValueError(f"Invalid JSON in {rel_source}: {e}")
+    except Exception as e:
+        raise ValueError(f"JSON to CSV conversion failed: {e}")
 
 
 if __name__ == "__main__":
