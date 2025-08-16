@@ -14,6 +14,7 @@ This server provides AI assistants with comprehensive file operations:
 - Recursive directory listings with pattern matching
 - Batch operations for handling multiple files efficiently
 - Advanced file search with name and content pattern matching
+- File comparison and diff generation with multiple formats
 
 **Connection Modes:**
 - **stdio** - Direct integration with Claude Desktop
@@ -149,6 +150,8 @@ Once configured, you can ask Claude to:
 - "Create these 5 files with their content in one operation"
 - "Find all .js files containing 'console.log' in the project"
 - "Delete all temporary .tmp files in the workspace"
+- "Compare config.json with config_backup.json"
+- "Show me the diff between old_version.py and new_version.py"
 
 ## Security
 

@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 from functools import wraps
+import difflib
 
 from fastmcp import FastMCP
 from fastmcp.server.auth import StaticTokenVerifier
@@ -1179,6 +1180,140 @@ def find_files(
         return f"No content matches for '{content_pattern}' found in files matching '{name_pattern}' in {base_rel}"
     
     return "\n\n".join(output_parts)
+
+
+# Diff/Comparison operations
+@mcp.tool()
+@requires_scopes("read:files")
+@validates_two_paths(check_extensions=False)
+def compare_files(
+    file1_path: Annotated[str, "First file path"],
+    file2_path: Annotated[str, "Second file path"],
+) -> str:
+    """Compare two files for differences"""
+    # Both paths are now validated Path objects
+    if not file1_path.exists():
+        rel_path1 = file1_path.relative_to(base_dir)
+        raise ValueError(f"First file does not exist: {rel_path1}")
+    
+    if not file2_path.exists():
+        rel_path2 = file2_path.relative_to(base_dir)
+        raise ValueError(f"Second file does not exist: {rel_path2}")
+    
+    if file1_path.is_dir():
+        rel_path1 = file1_path.relative_to(base_dir)
+        raise ValueError(f"First path is a directory: {rel_path1}")
+    
+    if file2_path.is_dir():
+        rel_path2 = file2_path.relative_to(base_dir)
+        raise ValueError(f"Second path is a directory: {rel_path2}")
+    
+    try:
+        content1 = file1_path.read_text(encoding="utf-8")
+        content2 = file2_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError(f"File is not text readable: {e}")
+    
+    rel_path1 = file1_path.relative_to(base_dir)
+    rel_path2 = file2_path.relative_to(base_dir)
+    
+    # Basic comparison
+    if content1 == content2:
+        return f"Files are identical: {rel_path1} and {rel_path2}"
+    
+    # Calculate statistics
+    lines1 = content1.splitlines()
+    lines2 = content2.splitlines()
+    
+    # Count differences
+    differ = difflib.SequenceMatcher(None, lines1, lines2)
+    similarity = differ.ratio() * 100
+    
+    # Find basic stats
+    added_lines = len(lines2) - len(lines1)
+    
+    return f"""Files differ: {rel_path1} vs {rel_path2}
+Similarity: {similarity:.1f}%
+Lines: {len(lines1)} vs {len(lines2)} ({added_lines:+d})
+File sizes: {len(content1)} vs {len(content2)} characters
+
+Use get_file_diff() to see detailed differences."""
+
+
+@mcp.tool()
+@requires_scopes("read:files")
+@validates_two_paths(check_extensions=False)
+def get_file_diff(
+    file1_path: Annotated[str, "First file path"],
+    file2_path: Annotated[str, "Second file path"],
+    format: Annotated[str, "Diff format: 'unified', 'context', or 'ndiff'"] = "unified",
+) -> str:
+    """Show detailed differences between two files"""
+    # Both paths are now validated Path objects
+    if not file1_path.exists():
+        rel_path1 = file1_path.relative_to(base_dir)
+        raise ValueError(f"First file does not exist: {rel_path1}")
+    
+    if not file2_path.exists():
+        rel_path2 = file2_path.relative_to(base_dir)
+        raise ValueError(f"Second file does not exist: {rel_path2}")
+    
+    if file1_path.is_dir():
+        rel_path1 = file1_path.relative_to(base_dir)
+        raise ValueError(f"First path is a directory: {rel_path1}")
+    
+    if file2_path.is_dir():
+        rel_path2 = file2_path.relative_to(base_dir)
+        raise ValueError(f"Second path is a directory: {rel_path2}")
+    
+    try:
+        content1 = file1_path.read_text(encoding="utf-8")
+        content2 = file2_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError(f"File is not text readable: {e}")
+    
+    rel_path1 = file1_path.relative_to(base_dir)
+    rel_path2 = file2_path.relative_to(base_dir)
+    
+    # Quick identical check
+    if content1 == content2:
+        return f"Files are identical: {rel_path1} and {rel_path2}"
+    
+    lines1 = content1.splitlines(keepends=True)
+    lines2 = content2.splitlines(keepends=True)
+    
+    # Generate diff based on format
+    if format == "unified":
+        diff_lines = list(difflib.unified_diff(
+            lines1, lines2,
+            fromfile=str(rel_path1),
+            tofile=str(rel_path2),
+            lineterm=""
+        ))
+    elif format == "context":
+        diff_lines = list(difflib.context_diff(
+            lines1, lines2,
+            fromfile=str(rel_path1),
+            tofile=str(rel_path2),
+            lineterm=""
+        ))
+    elif format == "ndiff":
+        diff_lines = list(difflib.ndiff(lines1, lines2))
+    else:
+        raise ValueError("Invalid format. Use 'unified', 'context', or 'ndiff'")
+    
+    if not diff_lines:
+        return f"Files are identical: {rel_path1} and {rel_path2}"
+    
+    # Limit output size for very large diffs
+    max_lines = 500
+    if len(diff_lines) > max_lines:
+        diff_output = "".join(diff_lines[:max_lines])
+        diff_output += f"\n... (truncated after {max_lines} lines, {len(diff_lines) - max_lines} more lines)"
+    else:
+        diff_output = "".join(diff_lines)
+    
+    return f"Diff between {rel_path1} and {rel_path2} ({format} format):\n\n{diff_output}"
 
 
 if __name__ == "__main__":
