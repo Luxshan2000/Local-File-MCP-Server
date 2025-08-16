@@ -6,10 +6,12 @@ Provides secure file operations within a sandboxed directory
 
 import os
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, List
+from functools import wraps
 
 from fastmcp import FastMCP
 from fastmcp.server.auth import StaticTokenVerifier
+from fastmcp.server.dependencies import get_access_token
 
 # Configuration from environment
 ALLOWED_PATH = os.getenv("MCP_ALLOWED_PATH", "./allowed")
@@ -17,9 +19,9 @@ MAX_FILE_SIZE = int(os.getenv("MCP_MAX_FILE_SIZE", "10485760"))  # 10MB
 ALLOWED_EXTENSIONS = os.getenv("MCP_ALLOWED_EXTENSIONS", ".txt,.json,.md,.csv,.log,.xml,.yaml,.yml,.conf,.cfg").split(",")
 
 # Multi-tier access keys
-MCP_READ_KEY = os.getenv("MCP_READ_KEY")
-MCP_WRITE_KEY = os.getenv("MCP_WRITE_KEY") 
-MCP_ADMIN_KEY = os.getenv("MCP_ADMIN_KEY")
+MCP_READ_KEY = os.getenv("MCP_READ_KEY",'test-read')
+MCP_WRITE_KEY = os.getenv("MCP_WRITE_KEY",'test-write') 
+MCP_ADMIN_KEY = os.getenv("MCP_ADMIN_KEY",'test-admin')
 
 # Build token configuration
 tokens = {}
@@ -57,6 +59,48 @@ else:
 base_dir = Path(ALLOWED_PATH).resolve()
 base_dir.mkdir(parents=True, exist_ok=True)
 
+# Validation decorators
+def requires_scopes(*required_scopes: str):
+    """Decorator to register tools with required scopes"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Validate scope
+            token = get_access_token()
+            if token:
+                user_scopes = set(token.scopes)
+                required_scope_set = set(required_scopes)
+                if not required_scope_set.issubset(user_scopes):
+                    missing_scopes = required_scope_set - user_scopes
+                    raise ValueError(f"Insufficient permissions: requires {', '.join(missing_scopes)}")
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+def validates_path_and_extension(path_param: str = "file_path", check_extension: bool = True):
+    """Decorator to validate file path and optionally extension"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Get the path value from first argument
+            if len(args) > 0:
+                path_value = args[0]
+            else:
+                raise ValueError(f"Path parameter '{path_param}' not found")
+            
+            # Validate and resolve path
+            validated_path = validate_path(path_value)
+            
+            # Validate extension if required
+            if check_extension and not validate_file_extension(path_value):
+                raise ValueError(f"File extension not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
+            
+            # Replace first argument with validated path
+            new_args = (validated_path,) + args[1:]
+            return func(*new_args, **kwargs)
+        return wrapper
+    return decorator
+
 print(f"🚀 FastMCP File Server initialized")
 print(f"📁 Base directory: {base_dir}")
 print(f"📝 Max file size: {MAX_FILE_SIZE / (1024*1024):.1f}MB")
@@ -83,82 +127,85 @@ def validate_file_extension(file_path: str) -> bool:
 
 
 @mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension()
 def create_file(file_path: Annotated[str, "Path to create the file"], content: Annotated[str, "Content to write"]) -> str:
     """Create a new file with the given content"""
-    full_path = validate_path(file_path)
-    
-    if full_path.exists():
+    # file_path is now a validated Path object
+    if file_path.exists():
         raise ValueError(f"File already exists: {file_path}")
-    
-    if not validate_file_extension(file_path):
-        raise ValueError(f"File extension not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
     
     if len(content.encode("utf-8")) > MAX_FILE_SIZE:
         raise ValueError(f"File size exceeds limit of {MAX_FILE_SIZE / (1024*1024):.1f}MB")
     
-    full_path.parent.mkdir(parents=True, exist_ok=True)
-    full_path.write_text(content, encoding="utf-8")
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(content, encoding="utf-8")
     
     return f"Successfully created {file_path} with {len(content)} characters"
 
 
 @mcp.tool()
+@requires_scopes("read:files")
+@validates_path_and_extension(check_extension=False)
 def read_file(file_path: Annotated[str, "Path to read the file"]) -> str:
     """Read the contents of a file"""
-    full_path = validate_path(file_path)
+    # file_path is now a validated Path object
     
-    if not full_path.exists():
+    if not file_path.exists():
         raise ValueError(f"File does not exist: {file_path}")
     
-    if full_path.is_dir():
+    if file_path.is_dir():
         raise ValueError(f"Path is a directory: {file_path}")
     
     try:
-        content = full_path.read_text(encoding="utf-8")
+        content = file_path.read_text(encoding="utf-8")
         return f"File: {file_path}\n\n{content}"
     except UnicodeDecodeError:
         raise ValueError(f"File is not text readable: {file_path}")
 
 
 @mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension()
 def write_file(file_path: Annotated[str, "Path to write the file"], content: Annotated[str, "Content to write"]) -> str:
     """Write content to an existing file"""
-    full_path = validate_path(file_path)
-    
-    if not full_path.exists():
+    # file_path is now a validated Path object
+    if not file_path.exists():
         raise ValueError(f"File does not exist: {file_path}")
-    
-    if not validate_file_extension(file_path):
-        raise ValueError(f"File extension not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
     
     if len(content.encode("utf-8")) > MAX_FILE_SIZE:
         raise ValueError(f"File size exceeds limit of {MAX_FILE_SIZE / (1024*1024):.1f}MB")
     
-    full_path.write_text(content, encoding="utf-8")
+    file_path.write_text(content, encoding="utf-8")
     
     return f"Successfully wrote {len(content)} characters to {file_path}"
 
 
 @mcp.tool()
+@requires_scopes("delete:files")
+@validates_path_and_extension(check_extension=False)
 def delete_file(file_path: Annotated[str, "Path to delete the file"]) -> str:
     """Delete a file"""
-    full_path = validate_path(file_path)
+    # file_path is now a validated Path object
     
-    if not full_path.exists():
+    if not file_path.exists():
         raise ValueError(f"File does not exist: {file_path}")
     
-    if full_path.is_dir():
+    if file_path.is_dir():
         raise ValueError(f"Cannot delete directory: {file_path}")
     
-    full_path.unlink()
+    file_path.unlink()
     
     return f"Successfully deleted {file_path}"
 
 
 @mcp.tool()
+@requires_scopes("read:files")
+@validates_path_and_extension("directory_path", check_extension=False)
 def list_files(directory_path: Annotated[str, "Directory path to list"] = ".") -> str:
     """List files and directories in the given path"""
-    target_path = validate_path(directory_path) if directory_path != "." else base_dir
+    # directory_path is now a validated Path object or uses base_dir
+    target_path = directory_path if directory_path != "." else base_dir
     
     if not target_path.exists():
         raise ValueError(f"Directory does not exist: {directory_path}")
