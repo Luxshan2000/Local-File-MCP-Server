@@ -22,7 +22,7 @@ load_dotenv()
 ALLOWED_PATH = os.getenv("MCP_ALLOWED_PATH", "./allowed")
 MAX_FILE_SIZE = int(os.getenv("MCP_MAX_FILE_SIZE", "10485760"))  # 10MB
 ALLOWED_EXTENSIONS = os.getenv(
-    "MCP_ALLOWED_EXTENSIONS", ".txt,.json,.md,.csv,.log,.xml,.yaml,.yml,.conf,.cfg"
+    "MCP_ALLOWED_EXTENSIONS", ".txt,.json,.md,.csv,.log,.xml,.yaml,.yml,.conf,.cfg,.zip"
 ).split(",")
 HTTP_PORT = int(os.getenv("MCP_HTTP_PORT", "8082"))
 
@@ -942,25 +942,25 @@ def batch_read(
     """Read multiple files at once"""
     if not file_paths_array:
         raise ValueError("File paths array cannot be empty")
-    
+
     results = []
     errors = []
-    
+
     for file_path_str in file_paths_array:
         try:
             # Validate path
             validated_path = validate_path(file_path_str)
-            
+
             if not validated_path.exists():
                 rel_path = validated_path.relative_to(base_dir)
                 errors.append(f"{rel_path}: File does not exist")
                 continue
-                
+
             if validated_path.is_dir():
                 rel_path = validated_path.relative_to(base_dir)
                 errors.append(f"{rel_path}: Path is a directory")
                 continue
-            
+
             try:
                 content = validated_path.read_text(encoding="utf-8")
                 rel_path = validated_path.relative_to(base_dir)
@@ -968,20 +968,22 @@ def batch_read(
             except UnicodeDecodeError:
                 rel_path = validated_path.relative_to(base_dir)
                 errors.append(f"{rel_path}: File is not text readable")
-                
+
         except Exception as e:
             errors.append(f"{file_path_str}: {str(e)}")
-    
+
     output_parts = []
     if results:
-        output_parts.append(f"Successfully read {len(results)} file(s):\n\n" + "\n\n".join(results))
-    
+        output_parts.append(
+            f"Successfully read {len(results)} file(s):\n\n" + "\n\n".join(results)
+        )
+
     if errors:
         output_parts.append(f"Errors ({len(errors)}):\n" + "\n".join(errors))
-    
+
     if not results and not errors:
         return "No files processed"
-    
+
     return "\n\n".join(output_parts)
 
 
@@ -993,57 +995,69 @@ def batch_create(
     """Create multiple files at once"""
     if not files_content_array:
         raise ValueError("Files content array cannot be empty")
-    
+
     created = []
     errors = []
-    
+
     for file_data in files_content_array:
         try:
-            if not isinstance(file_data, dict) or "file_path" not in file_data or "content" not in file_data:
-                errors.append("Invalid file data: must have 'file_path' and 'content' fields")
+            if (
+                not isinstance(file_data, dict)
+                or "file_path" not in file_data
+                or "content" not in file_data
+            ):
+                errors.append(
+                    "Invalid file data: must have 'file_path' and 'content' fields"
+                )
                 continue
-                
+
             file_path_str = file_data["file_path"]
             content = file_data["content"]
-            
+
             # Validate path and extension
             validated_path = validate_path(file_path_str)
             if not validate_file_extension(file_path_str):
                 rel_path = validated_path.relative_to(base_dir)
                 errors.append(f"{rel_path}: File extension not allowed")
                 continue
-            
+
             if validated_path.exists():
                 rel_path = validated_path.relative_to(base_dir)
                 errors.append(f"{rel_path}: File already exists")
                 continue
-            
+
             if len(content.encode("utf-8")) > MAX_FILE_SIZE:
                 rel_path = validated_path.relative_to(base_dir)
                 errors.append(f"{rel_path}: File size exceeds limit")
                 continue
-            
+
             # Create file
             validated_path.parent.mkdir(parents=True, exist_ok=True)
             validated_path.write_text(content, encoding="utf-8")
-            
+
             rel_path = validated_path.relative_to(base_dir)
             created.append(f"{rel_path} ({len(content)} characters)")
-            
+
         except Exception as e:
-            file_path_str = file_data.get("file_path", "unknown") if isinstance(file_data, dict) else "unknown"
+            file_path_str = (
+                file_data.get("file_path", "unknown")
+                if isinstance(file_data, dict)
+                else "unknown"
+            )
             errors.append(f"{file_path_str}: {str(e)}")
-    
+
     output_parts = []
     if created:
-        output_parts.append(f"Successfully created {len(created)} file(s):\n" + "\n".join(created))
-    
+        output_parts.append(
+            f"Successfully created {len(created)} file(s):\n" + "\n".join(created)
+        )
+
     if errors:
         output_parts.append(f"Errors ({len(errors)}):\n" + "\n".join(errors))
-    
+
     if not created and not errors:
         return "No files processed"
-    
+
     return "\n\n".join(output_parts)
 
 
@@ -1055,44 +1069,48 @@ def batch_delete(
     """Delete multiple files at once"""
     if not file_paths_array:
         raise ValueError("File paths array cannot be empty")
-    
+
     deleted = []
     errors = []
-    
+
     for file_path_str in file_paths_array:
         try:
             # Validate path
             validated_path = validate_path(file_path_str)
-            
+
             if not validated_path.exists():
                 rel_path = validated_path.relative_to(base_dir)
                 errors.append(f"{rel_path}: File does not exist")
                 continue
-                
+
             if validated_path.is_dir():
                 rel_path = validated_path.relative_to(base_dir)
-                errors.append(f"{rel_path}: Cannot delete directory (use delete_directory)")
+                errors.append(
+                    f"{rel_path}: Cannot delete directory (use delete_directory)"
+                )
                 continue
-            
+
             # Delete file
             validated_path.unlink()
-            
+
             rel_path = validated_path.relative_to(base_dir)
             deleted.append(str(rel_path))
-            
+
         except Exception as e:
             errors.append(f"{file_path_str}: {str(e)}")
-    
+
     output_parts = []
     if deleted:
-        output_parts.append(f"Successfully deleted {len(deleted)} file(s):\n" + "\n".join(deleted))
-    
+        output_parts.append(
+            f"Successfully deleted {len(deleted)} file(s):\n" + "\n".join(deleted)
+        )
+
     if errors:
         output_parts.append(f"Errors ({len(errors)}):\n" + "\n".join(errors))
-    
+
     if not deleted and not errors:
         return "No files processed"
-    
+
     return "\n\n".join(output_parts)
 
 
@@ -1108,11 +1126,11 @@ def find_files(
     if not directory.exists():
         rel_path = directory.relative_to(base_dir)
         raise ValueError(f"Directory does not exist: {rel_path}")
-    
+
     if not directory.is_dir():
         rel_path = directory.relative_to(base_dir)
         raise ValueError(f"Path is not a directory: {rel_path}")
-    
+
     # Find files matching name pattern
     matched_files = []
     try:
@@ -1121,7 +1139,7 @@ def find_files(
                 matched_files.append(file_path)
     except Exception as e:
         raise ValueError(f"Invalid name pattern: {e}")
-    
+
     if not content_pattern:
         # Return name matches only
         if matched_files:
@@ -1139,57 +1157,66 @@ def find_files(
                     results.append(f"{rel_path}{size_str}")
                 except (OSError, ValueError):
                     results.append(str(rel_path))
-            
+
             base_rel = directory.relative_to(base_dir) if directory != base_dir else "."
-            return f"Found {len(matched_files)} file(s) matching '{name_pattern}' in {base_rel}:\n" + "\n".join(results)
+            return (
+                f"Found {len(matched_files)} file(s) matching '{name_pattern}' in {base_rel}:\n"
+                + "\n".join(results)
+            )
         else:
             base_rel = directory.relative_to(base_dir) if directory != base_dir else "."
             return f"No files matching '{name_pattern}' found in {base_rel}"
-    
+
     # Search content in matched files
     content_matches = []
     content_errors = []
-    
+
     for file_path in matched_files:
         try:
             content = file_path.read_text(encoding="utf-8")
             lines = content.splitlines()
-            
+
             matching_lines = []
             for line_num, line in enumerate(lines, 1):
                 if content_pattern in line:
                     matching_lines.append(f"  {line_num}: {line}")
-            
+
             if matching_lines:
                 rel_path = file_path.relative_to(base_dir)
-                content_matches.append(f"{rel_path} ({len(matching_lines)} matches):\n" + "\n".join(matching_lines))
-                
+                content_matches.append(
+                    f"{rel_path} ({len(matching_lines)} matches):\n"
+                    + "\n".join(matching_lines)
+                )
+
         except UnicodeDecodeError:
             rel_path = file_path.relative_to(base_dir)
             content_errors.append(f"{rel_path}: Not text readable")
         except Exception as e:
             rel_path = file_path.relative_to(base_dir)
             content_errors.append(f"{rel_path}: {str(e)}")
-    
+
     output_parts = []
     base_rel = directory.relative_to(base_dir) if directory != base_dir else "."
-    
+
     if content_matches:
-        output_parts.append(f"Found content matches for '{content_pattern}' in {len(content_matches)} file(s) from {base_rel}:\n\n" + "\n\n".join(content_matches))
-    
+        output_parts.append(
+            f"Found content matches for '{content_pattern}' in {len(content_matches)} file(s) from {base_rel}:\n\n"
+            + "\n\n".join(content_matches)
+        )
+
     if content_errors:
         output_parts.append("Content search errors:\n" + "\n".join(content_errors))
-    
+
     if not content_matches and not content_errors:
         return f"No content matches for '{content_pattern}' found in files matching '{name_pattern}' in {base_rel}"
-    
+
     return "\n\n".join(output_parts)
 
 
 # Diff/Comparison operations
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_two_paths(check_extensions=False)
+@validates_two_paths("file1_path", "file2_path", check_extensions=False)
 def compare_files(
     file1_path: Annotated[str, "First file path"],
     file2_path: Annotated[str, "Second file path"],
@@ -1199,43 +1226,43 @@ def compare_files(
     if not file1_path.exists():
         rel_path1 = file1_path.relative_to(base_dir)
         raise ValueError(f"First file does not exist: {rel_path1}")
-    
+
     if not file2_path.exists():
         rel_path2 = file2_path.relative_to(base_dir)
         raise ValueError(f"Second file does not exist: {rel_path2}")
-    
+
     if file1_path.is_dir():
         rel_path1 = file1_path.relative_to(base_dir)
         raise ValueError(f"First path is a directory: {rel_path1}")
-    
+
     if file2_path.is_dir():
         rel_path2 = file2_path.relative_to(base_dir)
         raise ValueError(f"Second path is a directory: {rel_path2}")
-    
+
     try:
         content1 = file1_path.read_text(encoding="utf-8")
         content2 = file2_path.read_text(encoding="utf-8")
     except UnicodeDecodeError as e:
         raise ValueError(f"File is not text readable: {e}")
-    
+
     rel_path1 = file1_path.relative_to(base_dir)
     rel_path2 = file2_path.relative_to(base_dir)
-    
+
     # Basic comparison
     if content1 == content2:
         return f"Files are identical: {rel_path1} and {rel_path2}"
-    
+
     # Calculate statistics
     lines1 = content1.splitlines()
     lines2 = content2.splitlines()
-    
+
     # Count differences
     differ = difflib.SequenceMatcher(None, lines1, lines2)
     similarity = differ.ratio() * 100
-    
+
     # Find basic stats
     added_lines = len(lines2) - len(lines1)
-    
+
     return f"""Files differ: {rel_path1} vs {rel_path2}
 Similarity: {similarity:.1f}%
 Lines: {len(lines1)} vs {len(lines2)} ({added_lines:+d})
@@ -1246,10 +1273,11 @@ Use get_file_diff() to see detailed differences."""
 
 @mcp.tool()
 @requires_scopes("read:files")
-@validates_two_paths(check_extensions=False)
+@validates_two_paths("file1_path", "file2_path", check_extensions=False)
 def get_file_diff(
     file1_path: Annotated[str, "First file path"],
     file2_path: Annotated[str, "Second file path"],
+    max_lines=500,
     format: Annotated[str, "Diff format: 'unified', 'context', or 'ndiff'"] = "unified",
 ) -> str:
     """Show detailed differences between two files"""
@@ -1257,67 +1285,74 @@ def get_file_diff(
     if not file1_path.exists():
         rel_path1 = file1_path.relative_to(base_dir)
         raise ValueError(f"First file does not exist: {rel_path1}")
-    
+
     if not file2_path.exists():
         rel_path2 = file2_path.relative_to(base_dir)
         raise ValueError(f"Second file does not exist: {rel_path2}")
-    
+
     if file1_path.is_dir():
         rel_path1 = file1_path.relative_to(base_dir)
         raise ValueError(f"First path is a directory: {rel_path1}")
-    
+
     if file2_path.is_dir():
         rel_path2 = file2_path.relative_to(base_dir)
         raise ValueError(f"Second path is a directory: {rel_path2}")
-    
+
     try:
         content1 = file1_path.read_text(encoding="utf-8")
         content2 = file2_path.read_text(encoding="utf-8")
     except UnicodeDecodeError as e:
         raise ValueError(f"File is not text readable: {e}")
-    
+
     rel_path1 = file1_path.relative_to(base_dir)
     rel_path2 = file2_path.relative_to(base_dir)
-    
+
     # Quick identical check
     if content1 == content2:
         return f"Files are identical: {rel_path1} and {rel_path2}"
-    
+
     lines1 = content1.splitlines(keepends=True)
     lines2 = content2.splitlines(keepends=True)
-    
+
     # Generate diff based on format
     if format == "unified":
-        diff_lines = list(difflib.unified_diff(
-            lines1, lines2,
-            fromfile=str(rel_path1),
-            tofile=str(rel_path2),
-            lineterm=""
-        ))
+        diff_lines = list(
+            difflib.unified_diff(
+                lines1,
+                lines2,
+                fromfile=str(rel_path1),
+                tofile=str(rel_path2),
+                lineterm="",
+            )
+        )
     elif format == "context":
-        diff_lines = list(difflib.context_diff(
-            lines1, lines2,
-            fromfile=str(rel_path1),
-            tofile=str(rel_path2),
-            lineterm=""
-        ))
+        diff_lines = list(
+            difflib.context_diff(
+                lines1,
+                lines2,
+                fromfile=str(rel_path1),
+                tofile=str(rel_path2),
+                lineterm="",
+            )
+        )
     elif format == "ndiff":
         diff_lines = list(difflib.ndiff(lines1, lines2))
     else:
         raise ValueError("Invalid format. Use 'unified', 'context', or 'ndiff'")
-    
+
     if not diff_lines:
         return f"Files are identical: {rel_path1} and {rel_path2}"
-    
+
     # Limit output size for very large diffs
-    max_lines = 500
     if len(diff_lines) > max_lines:
         diff_output = "".join(diff_lines[:max_lines])
         diff_output += f"\n... (truncated after {max_lines} lines, {len(diff_lines) - max_lines} more lines)"
     else:
         diff_output = "".join(diff_lines)
-    
-    return f"Diff between {rel_path1} and {rel_path2} ({format} format):\n\n{diff_output}"
+
+    return (
+        f"Diff between {rel_path1} and {rel_path2} ({format} format):\n\n{diff_output}"
+    )
 
 
 # Archive operations
@@ -1331,16 +1366,16 @@ def create_zip(
     """Create a zip archive from files and directories"""
     if not source_paths:
         raise ValueError("Source paths array cannot be empty")
-    
+
     # Validate zip file extension
-    if not zip_path.suffix.lower() == '.zip':
+    if not zip_path.suffix.lower() == ".zip":
         rel_path = zip_path.relative_to(base_dir)
         raise ValueError(f"Zip file must have .zip extension: {rel_path}")
-    
+
     if zip_path.exists():
         rel_path = zip_path.relative_to(base_dir)
         raise ValueError(f"Zip file already exists: {rel_path}")
-    
+
     # Validate all source paths
     validated_sources = []
     for source_path_str in source_paths:
@@ -1352,11 +1387,11 @@ def create_zip(
             validated_sources.append(validated_source)
         except Exception as e:
             raise ValueError(f"Invalid source path '{source_path_str}': {e}")
-    
+
     # Create zip file
     zip_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for source_path in validated_sources:
             if source_path.is_file():
                 # Add file
@@ -1364,15 +1399,15 @@ def create_zip(
                 zip_file.write(source_path, rel_source)
             elif source_path.is_dir():
                 # Add directory recursively
-                for file_path in source_path.rglob('*'):
+                for file_path in source_path.rglob("*"):
                     if file_path.is_file():
                         rel_source = file_path.relative_to(base_dir)
                         zip_file.write(file_path, rel_source)
-    
+
     # Get created zip info
     zip_size = zip_path.stat().st_size
     rel_zip = zip_path.relative_to(base_dir)
-    
+
     return f"Successfully created {rel_zip} ({zip_size} bytes) with {len(validated_sources)} source(s)"
 
 
@@ -1387,55 +1422,59 @@ def extract_zip(
     if not zip_path.exists():
         rel_path = zip_path.relative_to(base_dir)
         raise ValueError(f"Zip file does not exist: {rel_path}")
-    
+
     if zip_path.is_dir():
         rel_path = zip_path.relative_to(base_dir)
         raise ValueError(f"Path is a directory: {rel_path}")
-    
-    if not zip_path.suffix.lower() == '.zip':
+
+    if not zip_path.suffix.lower() == ".zip":
         rel_path = zip_path.relative_to(base_dir)
         raise ValueError(f"File is not a zip archive: {rel_path}")
-    
+
     # Determine extraction directory
     if extract_to:
         extract_dir = validate_path(extract_to)
     else:
         # Extract to same directory as zip file
         extract_dir = zip_path.parent
-    
+
     extract_dir.mkdir(parents=True, exist_ok=True)
-    
+
     try:
-        with zipfile.ZipFile(zip_path, 'r') as zip_file:
+        with zipfile.ZipFile(zip_path, "r") as zip_file:
             # Validate all paths in archive are safe
             for member in zip_file.namelist():
                 # Check for directory traversal
-                if '..' in member or member.startswith('/'):
+                if ".." in member or member.startswith("/"):
                     raise ValueError(f"Unsafe path in archive: {member}")
-                
+
                 # Validate extraction path
                 extract_path = extract_dir / member
                 try:
                     extract_path.resolve().relative_to(base_dir.resolve())
                 except ValueError:
-                    raise ValueError(f"Archive would extract outside allowed directory: {member}")
-            
+                    raise ValueError(
+                        f"Archive would extract outside allowed directory: {member}"
+                    )
+
             # Extract all files
             zip_file.extractall(extract_dir)
-            
+
             # Count extracted items
             extracted_count = len(zip_file.namelist())
-    
+
     except zipfile.BadZipFile:
         rel_path = zip_path.relative_to(base_dir)
         raise ValueError(f"Invalid or corrupted zip file: {rel_path}")
     except Exception as e:
         raise ValueError(f"Extraction failed: {e}")
-    
+
     rel_zip = zip_path.relative_to(base_dir)
     rel_extract = extract_dir.relative_to(base_dir)
-    
-    return f"Successfully extracted {rel_zip} to {rel_extract} ({extracted_count} items)"
+
+    return (
+        f"Successfully extracted {rel_zip} to {rel_extract} ({extracted_count} items)"
+    )
 
 
 # File integrity operations
@@ -1444,36 +1483,38 @@ def extract_zip(
 @validates_path_and_extension(check_extension=False)
 def get_file_hash(
     file_path: Annotated[str, "Path to calculate hash for"],
-    algorithm: Annotated[str, "Hash algorithm: 'md5', 'sha1', 'sha256', 'sha512'"] = "sha256",
+    algorithm: Annotated[
+        str, "Hash algorithm: 'md5', 'sha1', 'sha256', 'sha512'"
+    ] = "sha256",
 ) -> str:
     """Calculate file hash for integrity verification"""
     if not file_path.exists():
         rel_path = file_path.relative_to(base_dir)
         raise ValueError(f"File does not exist: {rel_path}")
-    
+
     if file_path.is_dir():
         rel_path = file_path.relative_to(base_dir)
         raise ValueError(f"Path is a directory: {rel_path}")
-    
+
     # Validate algorithm
-    if algorithm not in ['md5', 'sha1', 'sha256', 'sha512']:
+    if algorithm not in ["md5", "sha1", "sha256", "sha512"]:
         raise ValueError("Invalid algorithm. Use 'md5', 'sha1', 'sha256', or 'sha512'")
-    
+
     try:
         # Create hash object
         hash_obj = hashlib.new(algorithm)
-        
+
         # Read file in chunks to handle large files
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_obj.update(chunk)
-        
+
         file_hash = hash_obj.hexdigest()
         file_size = file_path.stat().st_size
         rel_path = file_path.relative_to(base_dir)
-        
+
         return f"Hash ({algorithm}) for {rel_path}:\n{file_hash}\nFile size: {file_size} bytes"
-        
+
     except Exception as e:
         rel_path = file_path.relative_to(base_dir)
         raise ValueError(f"Cannot calculate hash for {rel_path}: {e}")
@@ -1492,35 +1533,39 @@ def append_to_file(
     if not file_path.exists():
         rel_path = file_path.relative_to(base_dir)
         raise ValueError(f"File does not exist: {rel_path}")
-    
+
     if file_path.is_dir():
         rel_path = file_path.relative_to(base_dir)
         raise ValueError(f"Path is a directory: {rel_path}")
-    
+
     try:
         # Read existing content to check size
         existing_content = file_path.read_text(encoding="utf-8")
-        
+
         # Prepare content to append
-        if add_newline and existing_content and not existing_content.endswith('\n'):
-            append_content = '\n' + content
+        if add_newline and existing_content and not existing_content.endswith("\n"):
+            append_content = "\n" + content
         else:
             append_content = content
-        
+
         # Check total size after append
-        new_total_size = len(existing_content.encode("utf-8")) + len(append_content.encode("utf-8"))
+        new_total_size = len(existing_content.encode("utf-8")) + len(
+            append_content.encode("utf-8")
+        )
         if new_total_size > MAX_FILE_SIZE:
-            raise ValueError(f"File size would exceed limit of {MAX_FILE_SIZE / (1024*1024):.1f}MB")
-        
+            raise ValueError(
+                f"File size would exceed limit of {MAX_FILE_SIZE / (1024*1024):.1f}MB"
+            )
+
         # Append to file
-        with open(file_path, 'a', encoding='utf-8') as f:
+        with open(file_path, "a", encoding="utf-8") as f:
             f.write(append_content)
-        
+
         lines_added = len(content.splitlines())
         rel_path = file_path.relative_to(base_dir)
-        
+
         return f"Successfully appended {len(content)} characters ({lines_added} lines) to {rel_path}"
-        
+
     except UnicodeDecodeError:
         rel_path = file_path.relative_to(base_dir)
         raise ValueError(f"File is not text readable: {rel_path}")
@@ -1532,7 +1577,7 @@ def append_to_file(
 # File conversion operations
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths()
+@validates_two_paths("file_path", "output_path")
 def convert_to_pdf(
     file_path: Annotated[str, "Source file path to convert"],
     output_path: Annotated[str, "Output PDF file path"],
@@ -1542,48 +1587,48 @@ def convert_to_pdf(
     if not file_path.exists():
         rel_source = file_path.relative_to(base_dir)
         raise ValueError(f"Source file does not exist: {rel_source}")
-    
+
     if file_path.is_dir():
         rel_source = file_path.relative_to(base_dir)
         raise ValueError(f"Source is a directory: {rel_source}")
-    
-    if not output_path.suffix.lower() == '.pdf':
+
+    if not output_path.suffix.lower() == ".pdf":
         rel_output = output_path.relative_to(base_dir)
         raise ValueError(f"Output file must have .pdf extension: {rel_output}")
-    
+
     if output_path.exists():
         rel_output = output_path.relative_to(base_dir)
         raise ValueError(f"Output file already exists: {rel_output}")
-    
+
     try:
         from reportlab.pdfgen import canvas
         from reportlab.lib.pagesizes import letter
         from reportlab.lib.units import inch
-        
+
         # Read source content
         content = file_path.read_text(encoding="utf-8")
         lines = content.splitlines()
-        
+
         # Create destination directory if needed
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Create PDF
         c = canvas.Canvas(str(output_path), pagesize=letter)
         width, height = letter
-        
+
         # Set up text formatting
         c.setFont("Helvetica", 10)
         line_height = 12
         margin = inch
         y_position = height - margin
-        
+
         for line in lines:
             # Check if we need a new page
             if y_position < margin:
                 c.showPage()
                 c.setFont("Helvetica", 10)
                 y_position = height - margin
-            
+
             # Handle long lines by wrapping
             if len(line) > 80:
                 words = line.split()
@@ -1598,23 +1643,25 @@ def convert_to_pdf(
                             c.setFont("Helvetica", 10)
                             y_position = height - margin
                     else:
-                        current_line = current_line + " " + word if current_line else word
-                
+                        current_line = (
+                            current_line + " " + word if current_line else word
+                        )
+
                 if current_line:
                     c.drawString(margin, y_position, current_line)
                     y_position -= line_height
             else:
                 c.drawString(margin, y_position, line)
                 y_position -= line_height
-        
+
         c.save()
-        
+
         pdf_size = output_path.stat().st_size
         rel_source = file_path.relative_to(base_dir)
         rel_output = output_path.relative_to(base_dir)
-        
+
         return f"Successfully converted {rel_source} to PDF: {rel_output} ({pdf_size} bytes)"
-        
+
     except ImportError:
         raise ValueError("PDF conversion requires reportlab: uv add reportlab")
     except UnicodeDecodeError:
@@ -1626,7 +1673,7 @@ def convert_to_pdf(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths()
+@validates_two_paths("image_path", "output_path")
 def convert_image_format(
     image_path: Annotated[str, "Source image file path"],
     output_path: Annotated[str, "Output image file path"],
@@ -1637,46 +1684,46 @@ def convert_image_format(
     if not image_path.exists():
         rel_source = image_path.relative_to(base_dir)
         raise ValueError(f"Source image does not exist: {rel_source}")
-    
+
     if image_path.is_dir():
         rel_source = image_path.relative_to(base_dir)
         raise ValueError(f"Source is a directory: {rel_source}")
-    
+
     if output_path.exists():
         rel_output = output_path.relative_to(base_dir)
         raise ValueError(f"Output file already exists: {rel_output}")
-    
+
     # Validate format
-    valid_formats = ['JPEG', 'PNG', 'BMP', 'GIF', 'TIFF']
+    valid_formats = ["JPEG", "PNG", "BMP", "GIF", "TIFF"]
     format_upper = format.upper()
     if format_upper not in valid_formats:
         raise ValueError(f"Invalid format. Use: {', '.join(valid_formats)}")
-    
+
     try:
         from PIL import Image
-        
+
         # Open and convert image
         with Image.open(image_path) as img:
             # Handle different format requirements
-            if format_upper == 'JPEG' and img.mode in ('RGBA', 'LA', 'P'):
+            if format_upper == "JPEG" and img.mode in ("RGBA", "LA", "P"):
                 # Convert to RGB for JPEG
-                img = img.convert('RGB')
-            elif format_upper == 'PNG' and img.mode == 'CMYK':
+                img = img.convert("RGB")
+            elif format_upper == "PNG" and img.mode == "CMYK":
                 # Convert CMYK to RGB for PNG
-                img = img.convert('RGB')
-            
+                img = img.convert("RGB")
+
             # Create destination directory if needed
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Save in new format
             img.save(output_path, format=format_upper)
-        
+
         output_size = output_path.stat().st_size
         rel_source = image_path.relative_to(base_dir)
         rel_output = output_path.relative_to(base_dir)
-        
+
         return f"Successfully converted {rel_source} to {format_upper}: {rel_output} ({output_size} bytes)"
-        
+
     except ImportError:
         raise ValueError("Image conversion requires Pillow: uv add pillow")
     except Exception as e:
@@ -1685,7 +1732,7 @@ def convert_image_format(
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths()
+@validates_two_paths("csv_path", "json_path")
 def csv_to_json(
     csv_path: Annotated[str, "Source CSV file path"],
     json_path: Annotated[str, "Output JSON file path"],
@@ -1695,51 +1742,51 @@ def csv_to_json(
     if not csv_path.exists():
         rel_source = csv_path.relative_to(base_dir)
         raise ValueError(f"CSV file does not exist: {rel_source}")
-    
+
     if csv_path.is_dir():
         rel_source = csv_path.relative_to(base_dir)
         raise ValueError(f"Source is a directory: {rel_source}")
-    
-    if not csv_path.suffix.lower() == '.csv':
+
+    if not csv_path.suffix.lower() == ".csv":
         rel_source = csv_path.relative_to(base_dir)
         raise ValueError(f"Source file must be .csv: {rel_source}")
-    
-    if not json_path.suffix.lower() == '.json':
+
+    if not json_path.suffix.lower() == ".json":
         rel_output = json_path.relative_to(base_dir)
         raise ValueError(f"Output file must be .json: {rel_output}")
-    
+
     if json_path.exists():
         rel_output = json_path.relative_to(base_dir)
         raise ValueError(f"Output file already exists: {rel_output}")
-    
+
     try:
         # Read CSV and convert to JSON
         data = []
-        with open(csv_path, 'r', encoding='utf-8') as csvfile:
+        with open(csv_path, "r", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 data.append(row)
-        
+
         # Create destination directory if needed
         json_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Write JSON
-        with open(json_path, 'w', encoding='utf-8') as jsonfile:
+        with open(json_path, "w", encoding="utf-8") as jsonfile:
             json.dump(data, jsonfile, indent=2, ensure_ascii=False)
-        
+
         output_size = json_path.stat().st_size
         rel_source = csv_path.relative_to(base_dir)
         rel_output = json_path.relative_to(base_dir)
-        
+
         return f"Successfully converted {rel_source} to JSON: {rel_output} ({len(data)} records, {output_size} bytes)"
-        
+
     except Exception as e:
         raise ValueError(f"CSV to JSON conversion failed: {e}")
 
 
 @mcp.tool()
 @requires_scopes("write:files")
-@validates_two_paths()
+@validates_two_paths("json_path", "csv_path")
 def json_to_csv(
     json_path: Annotated[str, "Source JSON file path"],
     csv_path: Annotated[str, "Output CSV file path"],
@@ -1749,60 +1796,60 @@ def json_to_csv(
     if not json_path.exists():
         rel_source = json_path.relative_to(base_dir)
         raise ValueError(f"JSON file does not exist: {rel_source}")
-    
+
     if json_path.is_dir():
         rel_source = json_path.relative_to(base_dir)
         raise ValueError(f"Source is a directory: {rel_source}")
-    
-    if not json_path.suffix.lower() == '.json':
+
+    if not json_path.suffix.lower() == ".json":
         rel_source = json_path.relative_to(base_dir)
         raise ValueError(f"Source file must be .json: {rel_source}")
-    
-    if not csv_path.suffix.lower() == '.csv':
+
+    if not csv_path.suffix.lower() == ".csv":
         rel_output = csv_path.relative_to(base_dir)
         raise ValueError(f"Output file must be .csv: {rel_output}")
-    
+
     if csv_path.exists():
         rel_output = csv_path.relative_to(base_dir)
         raise ValueError(f"Output file already exists: {rel_output}")
-    
+
     try:
         # Read JSON data
-        with open(json_path, 'r', encoding='utf-8') as jsonfile:
+        with open(json_path, "r", encoding="utf-8") as jsonfile:
             data = json.load(jsonfile)
-        
+
         # Validate JSON structure for CSV conversion
         if not isinstance(data, list):
             raise ValueError("JSON must be an array of objects for CSV conversion")
-        
+
         if not data:
             raise ValueError("JSON array is empty")
-        
+
         if not all(isinstance(item, dict) for item in data):
             raise ValueError("All items in JSON array must be objects")
-        
+
         # Get all unique keys from all records
         all_keys = set()
         for item in data:
             all_keys.update(item.keys())
-        
+
         fieldnames = sorted(all_keys)
-        
+
         # Create destination directory if needed
         csv_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Write CSV
-        with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+        with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(data)
-        
+
         output_size = csv_path.stat().st_size
         rel_source = json_path.relative_to(base_dir)
         rel_output = csv_path.relative_to(base_dir)
-        
+
         return f"Successfully converted {rel_source} to CSV: {rel_output} ({len(data)} records, {len(fieldnames)} columns, {output_size} bytes)"
-        
+
     except json.JSONDecodeError as e:
         rel_source = json_path.relative_to(base_dir)
         raise ValueError(f"Invalid JSON in {rel_source}: {e}")
