@@ -9,7 +9,10 @@ import json
 
 def test_fastmcp_http():
     """Test FastMCP HTTP server"""
+    import os
+    
     base_url = "http://127.0.0.1:8082"
+    api_key = os.getenv("MCP_API_KEY", "")
     
     print("🌐 Testing FastMCP HTTP Server")
     print("=" * 40)
@@ -19,6 +22,11 @@ def test_fastmcp_http():
         'Content-Type': 'application/json',
         'Accept': 'application/json, text/event-stream'
     }
+    
+    # Add Bearer token if API key is provided
+    if api_key:
+        headers['Authorization'] = f'Bearer {api_key}'
+        print(f"🔐 Using API key authentication")
     
     try:
         # Test 1: Initialize

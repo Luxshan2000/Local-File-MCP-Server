@@ -9,14 +9,32 @@ from pathlib import Path
 from typing import Annotated
 
 from fastmcp import FastMCP
+from fastmcp.server.auth import StaticTokenVerifier
 
 # Configuration from environment
 ALLOWED_PATH = os.getenv("MCP_ALLOWED_PATH", "./allowed")
 MAX_FILE_SIZE = int(os.getenv("MCP_MAX_FILE_SIZE", "10485760"))  # 10MB
 ALLOWED_EXTENSIONS = os.getenv("MCP_ALLOWED_EXTENSIONS", ".txt,.json,.md,.csv,.log,.xml,.yaml,.yml,.conf,.cfg").split(",")
+MCP_API_KEY = os.getenv("MCP_API_KEY")
 
-# Initialize FastMCP server
-mcp = FastMCP("Local File Server")
+# Define development tokens and their associated claims
+if MCP_API_KEY:
+    verifier = StaticTokenVerifier(
+        tokens={
+            MCP_API_KEY: {
+                "client_id": "mcp-user",
+                "scopes": ["read:files", "write:files", "delete:files"]
+            }
+        },
+        required_scopes=["read:files"]
+    )
+    mcp = FastMCP("Local File Server", auth=verifier)
+    print(f"🔐 StaticTokenVerifier authentication enabled")
+    print(f"🛡️  Token: {MCP_API_KEY}")
+    print(f"📋 Required scopes: read:files")
+else:
+    mcp = FastMCP("Local File Server")
+    print(f"⚠️  No API key - running without authentication")
 
 # Set up base directory
 base_dir = Path(ALLOWED_PATH).resolve()
@@ -152,6 +170,10 @@ if __name__ == "__main__":
                 port = int(sys.argv[port_idx + 1])
         
         print(f"🌐 Starting FastMCP HTTP server on port {port}")
+        if MCP_API_KEY:
+            print(f"🛡️  StaticTokenVerifier enabled with Bearer token auth")
+            print(f"📋 Expected header: Authorization: Bearer {MCP_API_KEY}")
+        
         mcp.run(transport="http", port=port)
     else:
         # Default to stdio for MCP clients like Claude Desktop
