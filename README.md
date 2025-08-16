@@ -15,6 +15,9 @@ This server provides AI assistants with comprehensive file operations:
 - Batch operations for handling multiple files efficiently
 - Advanced file search with name and content pattern matching
 - File comparison and diff generation with multiple formats
+- Archive operations (create and extract ZIP files)
+- File integrity verification with multiple hash algorithms
+- Non-destructive file appending
 
 **Connection Modes:**
 - **stdio** - Direct integration with Claude Desktop
@@ -152,6 +155,10 @@ Once configured, you can ask Claude to:
 - "Delete all temporary .tmp files in the workspace"
 - "Compare config.json with config_backup.json"
 - "Show me the diff between old_version.py and new_version.py"
+- "Create a backup.zip archive of all my source files"
+- "Extract the data.zip file to the imports/ directory"
+- "Calculate the SHA256 hash of important_file.pdf"
+- "Append this log entry to server.log without overwriting"
 
 ## Security
 

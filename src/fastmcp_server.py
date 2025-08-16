@@ -2,6 +2,8 @@ import os
 import re
 import shutil
 import stat
+import zipfile
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -1314,6 +1316,215 @@ def get_file_diff(
         diff_output = "".join(diff_lines)
     
     return f"Diff between {rel_path1} and {rel_path2} ({format} format):\n\n{diff_output}"
+
+
+# Archive operations
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension("zip_path")
+def create_zip(
+    zip_path: Annotated[str, "Path for the zip file to create"],
+    source_paths: Annotated[list, "Array of file/directory paths to include"],
+) -> str:
+    """Create a zip archive from files and directories"""
+    if not source_paths:
+        raise ValueError("Source paths array cannot be empty")
+    
+    # Validate zip file extension
+    if not zip_path.suffix.lower() == '.zip':
+        rel_path = zip_path.relative_to(base_dir)
+        raise ValueError(f"Zip file must have .zip extension: {rel_path}")
+    
+    if zip_path.exists():
+        rel_path = zip_path.relative_to(base_dir)
+        raise ValueError(f"Zip file already exists: {rel_path}")
+    
+    # Validate all source paths
+    validated_sources = []
+    for source_path_str in source_paths:
+        try:
+            validated_source = validate_path(source_path_str)
+            if not validated_source.exists():
+                rel_source = validated_source.relative_to(base_dir)
+                raise ValueError(f"Source does not exist: {rel_source}")
+            validated_sources.append(validated_source)
+        except Exception as e:
+            raise ValueError(f"Invalid source path '{source_path_str}': {e}")
+    
+    # Create zip file
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for source_path in validated_sources:
+            if source_path.is_file():
+                # Add file
+                rel_source = source_path.relative_to(base_dir)
+                zip_file.write(source_path, rel_source)
+            elif source_path.is_dir():
+                # Add directory recursively
+                for file_path in source_path.rglob('*'):
+                    if file_path.is_file():
+                        rel_source = file_path.relative_to(base_dir)
+                        zip_file.write(file_path, rel_source)
+    
+    # Get created zip info
+    zip_size = zip_path.stat().st_size
+    rel_zip = zip_path.relative_to(base_dir)
+    
+    return f"Successfully created {rel_zip} ({zip_size} bytes) with {len(validated_sources)} source(s)"
+
+
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension("zip_path", check_extension=False)
+def extract_zip(
+    zip_path: Annotated[str, "Path to the zip file"],
+    extract_to: Annotated[str, "Directory to extract to (optional)"] = None,
+) -> str:
+    """Extract a zip archive"""
+    if not zip_path.exists():
+        rel_path = zip_path.relative_to(base_dir)
+        raise ValueError(f"Zip file does not exist: {rel_path}")
+    
+    if zip_path.is_dir():
+        rel_path = zip_path.relative_to(base_dir)
+        raise ValueError(f"Path is a directory: {rel_path}")
+    
+    if not zip_path.suffix.lower() == '.zip':
+        rel_path = zip_path.relative_to(base_dir)
+        raise ValueError(f"File is not a zip archive: {rel_path}")
+    
+    # Determine extraction directory
+    if extract_to:
+        extract_dir = validate_path(extract_to)
+    else:
+        # Extract to same directory as zip file
+        extract_dir = zip_path.parent
+    
+    extract_dir.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zip_file:
+            # Validate all paths in archive are safe
+            for member in zip_file.namelist():
+                # Check for directory traversal
+                if '..' in member or member.startswith('/'):
+                    raise ValueError(f"Unsafe path in archive: {member}")
+                
+                # Validate extraction path
+                extract_path = extract_dir / member
+                try:
+                    extract_path.resolve().relative_to(base_dir.resolve())
+                except ValueError:
+                    raise ValueError(f"Archive would extract outside allowed directory: {member}")
+            
+            # Extract all files
+            zip_file.extractall(extract_dir)
+            
+            # Count extracted items
+            extracted_count = len(zip_file.namelist())
+    
+    except zipfile.BadZipFile:
+        rel_path = zip_path.relative_to(base_dir)
+        raise ValueError(f"Invalid or corrupted zip file: {rel_path}")
+    except Exception as e:
+        raise ValueError(f"Extraction failed: {e}")
+    
+    rel_zip = zip_path.relative_to(base_dir)
+    rel_extract = extract_dir.relative_to(base_dir)
+    
+    return f"Successfully extracted {rel_zip} to {rel_extract} ({extracted_count} items)"
+
+
+# File integrity operations
+@mcp.tool()
+@requires_scopes("read:files")
+@validates_path_and_extension(check_extension=False)
+def get_file_hash(
+    file_path: Annotated[str, "Path to calculate hash for"],
+    algorithm: Annotated[str, "Hash algorithm: 'md5', 'sha1', 'sha256', 'sha512'"] = "sha256",
+) -> str:
+    """Calculate file hash for integrity verification"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+    
+    if file_path.is_dir():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"Path is a directory: {rel_path}")
+    
+    # Validate algorithm
+    if algorithm not in ['md5', 'sha1', 'sha256', 'sha512']:
+        raise ValueError("Invalid algorithm. Use 'md5', 'sha1', 'sha256', or 'sha512'")
+    
+    try:
+        # Create hash object
+        hash_obj = hashlib.new(algorithm)
+        
+        # Read file in chunks to handle large files
+        with open(file_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_obj.update(chunk)
+        
+        file_hash = hash_obj.hexdigest()
+        file_size = file_path.stat().st_size
+        rel_path = file_path.relative_to(base_dir)
+        
+        return f"Hash ({algorithm}) for {rel_path}:\n{file_hash}\nFile size: {file_size} bytes"
+        
+    except Exception as e:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"Cannot calculate hash for {rel_path}: {e}")
+
+
+# Non-destructive writing operations
+@mcp.tool()
+@requires_scopes("write:files")
+@validates_path_and_extension()
+def append_to_file(
+    file_path: Annotated[str, "Path to append to"],
+    content: Annotated[str, "Content to append"],
+    add_newline: Annotated[bool, "Add newline before content"] = True,
+) -> str:
+    """Append content to end of file without overwriting"""
+    if not file_path.exists():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File does not exist: {rel_path}")
+    
+    if file_path.is_dir():
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"Path is a directory: {rel_path}")
+    
+    try:
+        # Read existing content to check size
+        existing_content = file_path.read_text(encoding="utf-8")
+        
+        # Prepare content to append
+        if add_newline and existing_content and not existing_content.endswith('\n'):
+            append_content = '\n' + content
+        else:
+            append_content = content
+        
+        # Check total size after append
+        new_total_size = len(existing_content.encode("utf-8")) + len(append_content.encode("utf-8"))
+        if new_total_size > MAX_FILE_SIZE:
+            raise ValueError(f"File size would exceed limit of {MAX_FILE_SIZE / (1024*1024):.1f}MB")
+        
+        # Append to file
+        with open(file_path, 'a', encoding='utf-8') as f:
+            f.write(append_content)
+        
+        lines_added = len(content.splitlines())
+        rel_path = file_path.relative_to(base_dir)
+        
+        return f"Successfully appended {len(content)} characters ({lines_added} lines) to {rel_path}"
+        
+    except UnicodeDecodeError:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"File is not text readable: {rel_path}")
+    except Exception as e:
+        rel_path = file_path.relative_to(base_dir)
+        raise ValueError(f"Cannot append to {rel_path}: {e}")
 
 
 if __name__ == "__main__":
