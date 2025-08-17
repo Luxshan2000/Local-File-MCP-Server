@@ -2,6 +2,20 @@
 
 A versatile secure file server that provides AI assistants with safe file operations. Supports multiple connection modes and access levels for various deployment scenarios.
 
+## Quick Start
+
+```bash
+# Install
+uv tool install fastmcp-file-server
+
+# Run for Claude Desktop
+export MCP_ALLOWED_PATH="/path/to/your/files"
+fastmcp-file-server
+
+# Or run HTTP server
+fastmcp-file-server-http
+```
+
 ## What it does
 
 This server provides AI assistants with comprehensive file operations:
@@ -34,14 +48,40 @@ This server provides AI assistants with comprehensive file operations:
 
 All operations are restricted to a safe directory to protect your system.
 
-## Setup
+## Installation
 
-1. Install dependencies:
+### Option 1: Install from PyPI (Recommended)
 ```bash
+# Install the package
+uv tool install fastmcp-file-server
+
+# Or install with pip
+pip install fastmcp-file-server
+```
+
+### Option 2: Install from source
+```bash
+# Clone and install
+git clone https://github.com/yourusername/fastmcp-file-server.git
+cd fastmcp-file-server
 uv sync
 ```
 
-2. Start the server:
+## Usage
+
+### Run the server
+```bash
+# Stdio mode (for Claude Desktop)
+fastmcp-file-server
+
+# HTTP mode (for web access)
+fastmcp-file-server-http
+
+# HTTP mode with custom port
+fastmcp-file-server-http --port 8080
+```
+
+### From source
 ```bash
 uv run server          # stdio mode
 # or
@@ -54,7 +94,22 @@ uv run server-http     # HTTP mode
 - **macOS**: `~/Library/Application Support/Claude/config.json`
 - **Windows**: `%APPDATA%\Claude\config.json`
 
-### Option 1: Direct (stdio mode)
+### Option 1: Using installed package (Recommended)
+
+```json
+{
+  "mcpServers": {
+    "local-file-server": {
+      "command": "fastmcp-file-server",
+      "env": {
+        "MCP_ALLOWED_PATH": "/absolute/path/to/your/allowed/directory"
+      }
+    }
+  }
+}
+```
+
+### Option 2: From source (stdio mode)
 
 ```json
 {
@@ -65,7 +120,7 @@ uv run server-http     # HTTP mode
         "run",
         "--directory",
         "/absolute/path/to/local_file_mcp_server",
-        "src/fastmcp_server.py"
+        "server"
       ],
       "env": {
         "MCP_ALLOWED_PATH": "/absolute/path/to/local_file_mcp_server/allowed"
@@ -75,12 +130,13 @@ uv run server-http     # HTTP mode
 }
 ```
 
-### Option 2: HTTP Mode
+### Option 3: HTTP Mode
 
 First start the HTTP server:
 ```bash
 export MCP_ADMIN_KEY="your-secret-token"
-uv run server-http
+fastmcp-file-server-http
+# or from source: uv run server-http
 ```
 
 **If your environment supports HTTP directly:**
@@ -120,7 +176,7 @@ uv run server-http
 
 Replace paths and tokens with your actual values. Restart Claude Desktop after configuration.
 
-### Option 3: Public Access (ngrok)
+### Option 4: Public Access (ngrok)
 
 For web-based AI systems, expose the HTTP server publicly:
 
@@ -128,7 +184,8 @@ For web-based AI systems, expose the HTTP server publicly:
 # Start HTTP server with authentication
 export MCP_ADMIN_KEY="your-secret-token"
 export MCP_HTTP_PORT=8082
-uv run server-http
+fastmcp-file-server-http
+# or from source: uv run server-http
 
 # In another terminal, expose via ngrok
 ngrok http $MCP_HTTP_PORT

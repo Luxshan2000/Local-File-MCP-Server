@@ -1823,23 +1823,4 @@ def json_to_csv(
         raise ValueError(f"JSON to CSV conversion failed: {e}")
 
 
-if __name__ == "__main__":
-    import sys
-
-    # Check if HTTP flag is provided
-    if "--http" in sys.argv:
-        port = HTTP_PORT
-        if "--port" in sys.argv:
-            port_idx = sys.argv.index("--port")
-            if port_idx + 1 < len(sys.argv):
-                port = int(sys.argv[port_idx + 1])
-
-        print(f"Starting FastMCP HTTP server on port {port}")
-        if tokens:
-            print("Multi-tier authentication enabled")
-            print("Configure tokens using: MCP_READ_KEY, MCP_WRITE_KEY, MCP_ADMIN_KEY")
-
-        mcp.run(transport="http", port=port)
-    else:
-        # Default to stdio for MCP clients like Claude Desktop
-        mcp.run()
+# Entry points are now handled by CLI module

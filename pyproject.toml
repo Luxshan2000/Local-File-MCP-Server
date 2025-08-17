@@ -2,6 +2,34 @@
 name = "fastmcp-file-server"
 version = "1.0.0"
 description = "Secure MCP file server with multi-tier authentication"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "FastMCP File Server Contributors"}
+]
+keywords = [
+    "mcp",
+    "model-context-protocol", 
+    "ai-assistant",
+    "file-server",
+    "claude-desktop",
+    "fastmcp",
+    "file-operations",
+    "secure-server",
+    "authentication"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: System :: Filesystems",
+]
 requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=0.1.0",
@@ -11,6 +39,19 @@ dependencies = [
     "pillow>=10.0.0",
     "pandas>=2.0.0",
 ]
+
+[project.scripts]
+fastmcp-file-server = "fastmcp_file_server.cli:main"
+fastmcp-file-server-http = "fastmcp_file_server.cli:main_http"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/fastmcp-file-server"
+Repository = "https://github.com/yourusername/fastmcp-file-server"
+Issues = "https://github.com/yourusername/fastmcp-file-server/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.black]
 line-length = 88
