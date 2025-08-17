@@ -16,7 +16,13 @@ def main():
     print("Allowed path:", os.getenv("MCP_ALLOWED_PATH", "./allowed"), file=sys.stderr)
 
     # Run in stdio mode for MCP clients like Claude Desktop
-    mcp.run()
+    try:
+        mcp.run()
+    except KeyboardInterrupt:
+        print("\nServer stopped by user", file=sys.stderr)
+    except Exception as e:
+        print(f"Server error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def main_http():

@@ -1,100 +1,110 @@
 # FastMCP File Server
 
-A versatile secure file server that provides AI assistants with safe file operations. Supports multiple connection modes and access levels for various deployment scenarios.
+[![PyPI version](https://badge.fury.io/py/fastmcp-file-server.svg)](https://badge.fury.io/py/fastmcp-file-server)
+[![Python](https://img.shields.io/pypi/pyversions/fastmcp-file-server.svg)](https://pypi.org/project/fastmcp-file-server/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Downloads](https://pepy.tech/badge/fastmcp-file-server)](https://pepy.tech/project/fastmcp-file-server)
+[![Downloads/Month](https://pepy.tech/badge/fastmcp-file-server/month)](https://pepy.tech/project/fastmcp-file-server)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-## Quick Start
+A versatile, secure file server implementing the Model Context Protocol (MCP) that provides AI assistants with safe file operations. Features multiple connection modes, configurable access levels, and comprehensive security controls for various deployment scenarios.
+
+## 🚀 Features
+
+- **Comprehensive File Operations**: Create, read, write, delete, copy, move, rename files and directories
+- **Advanced Text Manipulation**: Line-specific operations, search and replace, pattern matching
+- **File Analysis**: Size, permissions, timestamps, hash verification, diff generation
+- **Batch Operations**: Handle multiple files efficiently in single operations
+- **Archive Support**: Create and extract ZIP files
+- **Format Conversion**: Text to PDF, image format conversion, CSV ↔ JSON
+- **Multiple Connection Modes**: stdio, HTTP, and public access via ngrok
+- **Tiered Access Control**: Read-only, Read/Write, and Admin permission levels
+- **Security First**: All operations restricted to configured safe directories
+
+## 📦 Installation
+
+### From PyPI (Recommended)
 
 ```bash
-# Install
+# Using uv (recommended)
 uv tool install fastmcp-file-server
 
-# Run for Claude Desktop
-export MCP_ALLOWED_PATH="/path/to/your/files"
-fastmcp-file-server
-
-# Or run HTTP server
-fastmcp-file-server-http
-```
-
-## What it does
-
-This server provides AI assistants with comprehensive file operations:
-- Create, read, write, and delete files
-- Copy, move, and rename files and directories
-- Read specific line ranges and manipulate lines
-- Search and replace text within files
-- Get file information (size, date, permissions)
-- Create and manage directories
-- Recursive directory listings with pattern matching
-- Batch operations for handling multiple files efficiently
-- Advanced file search with name and content pattern matching
-- File comparison and diff generation with multiple formats
-- Archive operations (create and extract ZIP files)
-- File integrity verification with multiple hash algorithms
-- Non-destructive file appending
-- Document conversion (text to PDF)
-- Image format conversion (JPEG, PNG, BMP, GIF, TIFF)
-- Data format conversion (CSV ↔ JSON)
-
-**Connection Modes:**
-- **stdio** - Direct integration with Claude Desktop
-- **HTTP** - Local or remote access via web API
-- **Public** - Expose via ngrok for web-based AI systems
-
-**Access Levels:**
-- **Read-only** - View and list files only
-- **Read/Write** - Create and modify files
-- **Admin** - Full access including deletion
-
-All operations are restricted to a safe directory to protect your system.
-
-## Installation
-
-### Option 1: Install from PyPI (Recommended)
-```bash
-# Install the package
-uv tool install fastmcp-file-server
-
-# Or install with pip
+# Using pip
 pip install fastmcp-file-server
 ```
 
-### Option 2: Install from source
+### From Source
+
 ```bash
-# Clone and install
-git clone https://github.com/yourusername/fastmcp-file-server.git
-cd fastmcp-file-server
+git clone https://github.com/Luxshan2000/Local-File-MCP-Server.git
+cd Local-File-MCP-Server
 uv sync
 ```
 
-## Usage
+## 🔧 Quick Start
 
-### Run the server
+### Basic Usage
+
 ```bash
-# Stdio mode (for Claude Desktop)
+# Set allowed directory
+export MCP_ALLOWED_PATH="/path/to/your/files"
+
+# Start stdio server (for Claude Desktop)
 fastmcp-file-server
 
-# HTTP mode (for web access)
+# Start HTTP server
 fastmcp-file-server-http
-
-# HTTP mode with custom port
-fastmcp-file-server-http --port 8080
 ```
 
-### From source
+### With Authentication
+
 ```bash
-uv run server          # stdio mode
-# or
-uv run server-http     # HTTP mode
+# Set admin key for HTTP mode
+export MCP_ADMIN_KEY="your-secret-token"
+export MCP_HTTP_PORT=8082
+fastmcp-file-server-http
 ```
 
-## Claude Desktop Integration
+## ⚙️ Configuration
 
-**Configuration file location:**
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MCP_ALLOWED_PATH` | `./allowed` | Directory path for file operations |
+| `MCP_HTTP_PORT` | `8082` | HTTP server port |
+| `MCP_ADMIN_KEY` | `None` | Authentication token for HTTP mode |
+| `MCP_MAX_FILE_SIZE` | `10MB` | Maximum file size limit |
+| `MCP_READ_ONLY` | `false` | Enable read-only mode |
+| `MCP_LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
+
+### Configuration Files
+
+Create a `.env` file in your project root:
+
+```bash
+# Required: Safe directory for file operations
+MCP_ALLOWED_PATH=/absolute/path/to/your/files
+
+# Optional: HTTP server settings
+MCP_HTTP_PORT=8082
+MCP_ADMIN_KEY=your-secret-token-here
+
+# Optional: Security settings
+MCP_MAX_FILE_SIZE=50MB
+MCP_READ_ONLY=false
+MCP_LOG_LEVEL=INFO
+```
+
+## 🔗 Integration
+
+### Claude Desktop Integration
+
+**Configuration file locations:**
 - **macOS**: `~/Library/Application Support/Claude/config.json`
 - **Windows**: `%APPDATA%\Claude\config.json`
 
-### Option 1: Using installed package (Recommended)
+#### Stdio Mode (Direct Integration)
 
 ```json
 {
@@ -109,37 +119,15 @@ uv run server-http     # HTTP mode
 }
 ```
 
-### Option 2: From source (stdio mode)
+#### HTTP Mode (Local Server)
 
-```json
-{
-  "mcpServers": {
-    "local-file-server": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/absolute/path/to/local_file_mcp_server",
-        "server"
-      ],
-      "env": {
-        "MCP_ALLOWED_PATH": "/absolute/path/to/local_file_mcp_server/allowed"
-      }
-    }
-  }
-}
-```
-
-### Option 3: HTTP Mode
-
-First start the HTTP server:
+1. Start the HTTP server:
 ```bash
 export MCP_ADMIN_KEY="your-secret-token"
 fastmcp-file-server-http
-# or from source: uv run server-http
 ```
 
-**If your environment supports HTTP directly:**
+2. Configure Claude Desktop:
 ```json
 {
   "mcpServers": {
@@ -154,7 +142,15 @@ fastmcp-file-server-http
 }
 ```
 
-**If you need mcp-remote proxy (install with `npm install -g mcp-remote`):**
+#### HTTP Mode with mcp-remote Proxy
+
+For environments requiring a proxy:
+
+```bash
+# Install mcp-remote
+npm install -g mcp-remote
+```
+
 ```json
 {
   "mcpServers": {
@@ -174,92 +170,170 @@ fastmcp-file-server-http
 }
 ```
 
-Replace paths and tokens with your actual values. Restart Claude Desktop after configuration.
+### Public Access with ngrok
 
-### Option 4: Public Access (ngrok)
-
-For web-based AI systems, expose the HTTP server publicly:
+For web-based AI systems (ChatGPT, etc.):
 
 ```bash
-# Start HTTP server with authentication
+# Terminal 1: Start authenticated HTTP server
 export MCP_ADMIN_KEY="your-secret-token"
 export MCP_HTTP_PORT=8082
 fastmcp-file-server-http
-# or from source: uv run server-http
 
-# In another terminal, expose via ngrok
-ngrok http $MCP_HTTP_PORT
+# Terminal 2: Expose publicly via ngrok
+ngrok http 8082
 ```
 
-Then use the ngrok URL (e.g., `https://abc123.ngrok.io/mcp`) in your web-based AI system with:
+Use the ngrok URL in your web-based AI system:
+- **URL**: `https://abc123.ngrok.io/mcp`
+- **Header**: `Authorization: Bearer your-secret-token`
+
+## 🔒 Security
+
+### Token Management
+
+**⚠️ Important Security Notes:**
+
+- **With Keys**: When `MCP_ADMIN_KEY` is set, all HTTP requests require the `Authorization: Bearer <token>` header
+- **Without Keys**: If `MCP_ADMIN_KEY` is unset, the server runs without authentication (use only in secure environments)
+- **Temporary Exposure**: For ngrok or temporary remote access, always use strong tokens and revoke access when done
+- **Key Rotation**: Regularly rotate your `MCP_ADMIN_KEY`, especially after temporary exposures
+
+### Best Practices
+
+1. **Never commit secrets**: Use `.env` files (added to `.gitignore`)
+2. **Use strong tokens**: Generate cryptographically secure random tokens
+3. **Limit access scope**: Set `MCP_ALLOWED_PATH` to the minimum required directory
+4. **Monitor usage**: Check logs for unauthorized access attempts
+5. **Temporary access**: Unset `MCP_ADMIN_KEY` and restart after temporary exposures
+
+### Access Levels
+
+- **No Key Set**: Server runs without authentication (local use only)
+- **Key Set**: All operations require valid Bearer token
+- **Read-Only Mode**: Set `MCP_READ_ONLY=true` to prevent modifications
+
+## 💡 Usage Examples
+
+### File Operations
 ```
-Authorization: Bearer your-secret-token
+# Basic operations
+"Create a file called notes.txt with my meeting notes"
+"Read lines 10-20 from config.py"
+"Copy config.json to backup/config_backup.json"
+
+# Advanced operations
+"Search for 'TODO' comments in all Python files"
+"Replace 'old_function' with 'new_function' in utils.py"
+"Create a ZIP archive of all source files"
+"Convert report.txt to PDF format"
+"Calculate SHA256 hash of important_file.pdf"
 ```
 
-This allows any web-based AI system to securely access your local files through the public URL.
+### Batch Operations
+```
+"Read all .py files in the src/ directory"
+"Create these 5 configuration files with their content"
+"Delete all .tmp files in the workspace"
+"Find all JavaScript files containing 'console.log'"
+```
 
-## Using with Claude
+## 🛠️ Development
 
-Once configured, you can ask Claude to:
-- "Create a file called notes.txt with my meeting notes"
-- "Read lines 10-20 from config.py"
-- "Search for 'TODO' in all my files"
-- "Replace 'old_function' with 'new_function' in utils.py"
-- "Insert this code at line 15 in main.py"
-- "Delete lines 5-10 from test.txt"
-- "Append this log entry to debug.log"
-- "Copy config.json to backup/config_backup.json"
-- "Read all .py files in the src/ directory at once"
-- "Create these 5 files with their content in one operation"
-- "Find all .js files containing 'console.log' in the project"
-- "Delete all temporary .tmp files in the workspace"
-- "Compare config.json with config_backup.json"
-- "Show me the diff between old_version.py and new_version.py"
-- "Create a backup.zip archive of all my source files"
-- "Extract the data.zip file to the imports/ directory"
-- "Calculate the SHA256 hash of important_file.pdf"
-- "Append this log entry to server.log without overwriting"
-- "Convert my report.txt to a PDF document"
-- "Convert screenshot.png to JPEG format"
-- "Convert data.csv to JSON format for the API"
+See [DEVELOPER.md](DEVELOPER.md) for detailed development setup and contribution guidelines.
 
-## Security
-
-- All file operations are restricted to the `allowed/` directory
-- Cannot access files outside the protected area
-- File types and sizes can be limited through configuration
-
-## Optional Configuration
-
-You can customize the server by setting environment variables before starting:
+### Quick Development Setup
 
 ```bash
-export MCP_ALLOWED_PATH="./my-files"          # Change the safe directory
-export MCP_HTTP_PORT=8082                     # HTTP server port
-export MCP_ADMIN_KEY="your-secret-token"     # Enable HTTP authentication
+# Clone repository
+git clone https://github.com/Luxshan2000/Local-File-MCP-Server.git
+cd Local-File-MCP-Server
+
+# Install dependencies
+uv sync
+
+# Run development server
+uv run server          # stdio mode
+uv run server-http     # HTTP mode
+
+# Run tests and linting
+uv run test
+uv run lint
+uv run format
 ```
 
-## Development
+## 📊 API Reference
 
-Available uv scripts for development:
+### Available Tools
 
-```bash
-uv run server          # Start server (stdio mode)
-uv run server-http     # Start server (HTTP mode)
-uv run test            # Run tests
-uv run format          # Format code with black
-uv run lint            # Check code with ruff
-uv run lint-fix        # Fix linting issues
-```
+| Tool | Description | Access Level |
+|------|-------------|--------------|
+| `read_file` | Read file contents or specific line ranges | Read-only |
+| `write_file` | Create or overwrite files | Read/Write |
+| `append_file` | Append content to existing files | Read/Write |
+| `delete_file` | Remove files and directories | Admin |
+| `copy_file` | Copy files and directories | Read/Write |
+| `move_file` | Move/rename files and directories | Read/Write |
+| `list_directory` | List directory contents with filtering | Read-only |
+| `create_directory` | Create new directories | Read/Write |
+| `get_file_info` | Get file metadata and permissions | Read-only |
+| `search_files` | Search for files by name patterns | Read-only |
+| `search_content` | Search file contents with regex | Read-only |
+| `replace_content` | Find and replace text in files | Read/Write |
+| `insert_lines` | Insert text at specific line numbers | Read/Write |
+| `delete_lines` | Remove specific line ranges | Read/Write |
+| `compare_files` | Generate diffs between files | Read-only |
+| `create_archive` | Create ZIP archives | Read/Write |
+| `extract_archive` | Extract ZIP archives | Read/Write |
+| `calculate_hash` | Generate file hashes (MD5, SHA1, SHA256) | Read-only |
+| `convert_document` | Convert text to PDF | Read/Write |
+| `convert_image` | Convert between image formats | Read/Write |
+| `convert_data` | Convert between CSV and JSON | Read/Write |
 
-## Troubleshooting
+## 🐛 Troubleshooting
+
+### Common Issues
 
 **Server won't start:**
 ```bash
-uv sync   # Reinstall dependencies
+# Reinstall dependencies
+uv sync
+
+# Check Python version
+python --version  # Requires Python 3.10+
 ```
 
 **Claude Desktop not connecting:**
-1. Check that all paths in the configuration are absolute (full paths)
+1. Verify all paths in configuration are absolute (full paths)
 2. Restart Claude Desktop after changing configuration
-3. Verify the server starts without errors using `uv run src/fastmcp_server.py`
+3. Check server starts without errors: `uv run server`
+4. Ensure `MCP_ALLOWED_PATH` directory exists and is accessible
+
+**HTTP authentication fails:**
+1. Verify `MCP_ADMIN_KEY` is set before starting server
+2. Check Authorization header format: `Bearer your-secret-token`
+3. Ensure token matches exactly (no extra spaces)
+
+**Permission denied errors:**
+1. Check file/directory permissions
+2. Verify `MCP_ALLOWED_PATH` is accessible
+3. Ensure user has read/write permissions in the allowed directory
+
+## 📄 License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [DEVELOPER.md](DEVELOPER.md) for development setup and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community guidelines.
+
+## 🔗 Links
+
+- **Repository**: https://github.com/Luxshan2000/Local-File-MCP-Server
+- **PyPI Package**: https://pypi.org/project/fastmcp-file-server/
+- **Issues**: https://github.com/Luxshan2000/Local-File-MCP-Server/issues
+- **Model Context Protocol**: https://modelcontextprotocol.io/
+
+## ⭐ Support
+
+If you find this project useful, please consider giving it a star on GitHub!

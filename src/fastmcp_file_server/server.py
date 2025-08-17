@@ -1821,6 +1821,3 @@ def json_to_csv(
         raise ValueError(f"Invalid JSON in {rel_source}: {e}")
     except Exception as e:
         raise ValueError(f"JSON to CSV conversion failed: {e}")
-
-
-# Entry points are now handled by CLI module
