@@ -21,7 +21,6 @@ setup:
 	@echo "Setting up FastMCP File Server..."
 	uv sync
 	@mkdir -p allowed
-	@touch allowed/.gitkeep
 	@echo "Setup complete! Ready to use."
 
 # Run tests
