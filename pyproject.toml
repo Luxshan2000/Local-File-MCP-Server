@@ -45,9 +45,9 @@ fastmcp-file-server = "fastmcp_file_server.cli:main"
 fastmcp-file-server-http = "fastmcp_file_server.cli:main_http"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/fastmcp-file-server"
-Repository = "https://github.com/yourusername/fastmcp-file-server"
-Issues = "https://github.com/yourusername/fastmcp-file-server/issues"
+Homepage = "https://github.com/Luxshan2000/fastmcp-file-server"
+Repository = "https://github.com/Luxshan2000/fastmcp-file-server"
+Issues = "https://github.com/Luxshan2000/fastmcp-file-server/issues"
 
 [build-system]
 requires = ["hatchling"]

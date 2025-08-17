@@ -19,11 +19,16 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.ruff_cache
+.mypy_cache
+.claude
+allowed
 
 # Virtual environments
-venv/
+.venv/
 env/
 ENV/
+
 
 # Testing
 .pytest_cache/

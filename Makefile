@@ -10,6 +10,8 @@ help:
 	@echo "  test        - Run test suite"
 	@echo "  run         - Start server (stdio mode)"
 	@echo "  run-http    - Start server (HTTP mode)"
+	@echo "  run-dev     - Start server from source (stdio mode)"
+	@echo "  run-dev-http - Start server from source (HTTP mode)"
 	@echo "  format      - Format code with black"
 	@echo "  lint        - Check code with ruff"
 	@echo "  lint-fix    - Fix linting issues"
@@ -31,12 +33,22 @@ test:
 # Start server (stdio)
 run:
 	@echo "Starting FastMCP File Server (stdio)..."
-	uv run src/fastmcp_server.py
+	uv run -m fastmcp_file_server.cli
 
 # Start server (HTTP)
 run-http:
 	@echo "Starting FastMCP File Server (HTTP)..."
-	uv run src/fastmcp_server.py --http
+	uv run -m fastmcp_file_server.cli http
+
+# Run from source (stdio) - for development
+run-dev:
+	@echo "Starting FastMCP File Server from source (stdio)..."
+	PYTHONPATH=src uv run python -m fastmcp_file_server.cli
+
+# Run from source (HTTP) - for development  
+run-dev-http:
+	@echo "Starting FastMCP File Server from source (HTTP)..."
+	PYTHONPATH=src uv run python -m fastmcp_file_server.cli http
 
 # Format code
 format:
