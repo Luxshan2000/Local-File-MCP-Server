@@ -72,6 +72,8 @@ def main_http():
             print("  MCP_WRITE_KEY        Read/write access token", file=sys.stderr)
             print("  MCP_ADMIN_KEY        Admin access token", file=sys.stderr)
             sys.exit(0)
+        elif(args[i] == "--http" or args[i] == "http"):
+            i+=1
         else:
             print(f"Error: Unknown argument '{args[i]}'", file=sys.stderr)
             print("Use --help for usage information", file=sys.stderr)
