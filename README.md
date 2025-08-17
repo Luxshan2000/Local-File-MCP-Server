@@ -54,6 +54,9 @@ fastmcp-file-server
 
 # Start HTTP server
 fastmcp-file-server-http
+
+# Start HTTP server bypassing security warning (not recommended)
+fastmcp-file-server-http --ignore-keys
 ```
 
 ### With Authentication
@@ -73,10 +76,11 @@ fastmcp-file-server-http
 |----------|---------|-------------|
 | `MCP_ALLOWED_PATH` | `./allowed` | Directory path for file operations |
 | `MCP_HTTP_PORT` | `8082` | HTTP server port |
-| `MCP_ADMIN_KEY` | `None` | Authentication token for HTTP mode |
-| `MCP_MAX_FILE_SIZE` | `10MB` | Maximum file size limit |
-| `MCP_READ_ONLY` | `false` | Enable read-only mode |
-| `MCP_LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `MCP_READ_KEY` | `None` | Read-only access token |
+| `MCP_WRITE_KEY` | `None` | Read/write access token |
+| `MCP_ADMIN_KEY` | `None` | Admin access token (includes delete) |
+| `MCP_MAX_FILE_SIZE` | `10485760` | Maximum file size in bytes (10MB) |
+| `MCP_ALLOWED_EXTENSIONS` | `.txt,.json,.md,...` | Allowed file extensions (comma-separated) |
 
 ### Configuration Files
 
@@ -88,12 +92,15 @@ MCP_ALLOWED_PATH=/absolute/path/to/your/files
 
 # Optional: HTTP server settings
 MCP_HTTP_PORT=8082
-MCP_ADMIN_KEY=your-secret-token-here
 
-# Optional: Security settings
-MCP_MAX_FILE_SIZE=50MB
-MCP_READ_ONLY=false
-MCP_LOG_LEVEL=INFO
+# Optional: Multi-tier authentication tokens
+MCP_READ_KEY=readonly-token-here
+MCP_WRITE_KEY=readwrite-token-here  
+MCP_ADMIN_KEY=admin-token-here
+
+# Optional: File restrictions
+MCP_MAX_FILE_SIZE=10485760
+MCP_ALLOWED_EXTENSIONS=.txt,.json,.md,.csv,.log,.xml,.yaml,.yml,.conf,.cfg,.zip,.pdf,.jpg,.png
 ```
 
 ## 🔗 Integration
@@ -190,28 +197,45 @@ Use the ngrok URL in your web-based AI system:
 
 ## 🔒 Security
 
+### Security Features
+
+**⚠️ HTTP Mode Security Warning:**
+
+When starting the HTTP server without any authentication tokens configured, the system will display a security warning and prompt for confirmation. This prevents accidentally running an unprotected server.
+
+```bash
+# This will trigger a security warning:
+fastmcp-file-server-http
+
+# To bypass the warning (not recommended):
+fastmcp-file-server-http --ignore-keys
+```
+
 ### Token Management
 
 **⚠️ Important Security Notes:**
 
-- **With Keys**: When `MCP_ADMIN_KEY` is set, all HTTP requests require the `Authorization: Bearer <token>` header
-- **Without Keys**: If `MCP_ADMIN_KEY` is unset, the server runs without authentication (use only in secure environments)
+- **With Keys**: When ANY token is set (`MCP_READ_KEY`, `MCP_WRITE_KEY`, or `MCP_ADMIN_KEY`), all HTTP requests require the `Authorization: Bearer <token>` header
+- **Without Keys**: If NO tokens are set, the server runs without authentication (use only in secure environments)
+- **Multi-tier Access**: Different tokens provide different permission levels
 - **Temporary Exposure**: For ngrok or temporary remote access, always use strong tokens and revoke access when done
-- **Key Rotation**: Regularly rotate your `MCP_ADMIN_KEY`, especially after temporary exposures
+- **Key Rotation**: Regularly rotate your tokens, especially after temporary exposures
+
+### Access Levels
+
+- **No Tokens Set**: Server runs without authentication (stdio mode safe, HTTP local only)
+- **Read Token**: `MCP_READ_KEY` - File listing, reading, searching, comparison operations
+- **Write Token**: `MCP_WRITE_KEY` - All read operations plus create, modify, copy, move, convert
+- **Admin Token**: `MCP_ADMIN_KEY` - All operations including file and directory deletion
 
 ### Best Practices
 
 1. **Never commit secrets**: Use `.env` files (added to `.gitignore`)
-2. **Use strong tokens**: Generate cryptographically secure random tokens
+2. **Use strong tokens**: Generate cryptographically secure random tokens (`openssl rand -hex 32`)
 3. **Limit access scope**: Set `MCP_ALLOWED_PATH` to the minimum required directory
-4. **Monitor usage**: Check logs for unauthorized access attempts
-5. **Temporary access**: Unset `MCP_ADMIN_KEY` and restart after temporary exposures
-
-### Access Levels
-
-- **No Key Set**: Server runs without authentication (local use only)
-- **Key Set**: All operations require valid Bearer token
-- **Read-Only Mode**: Set `MCP_READ_ONLY=true` to prevent modifications
+4. **Choose appropriate token level**: Use read-only tokens for analysis, admin only when deletion needed
+5. **Monitor usage**: Check logs for unauthorized access attempts
+6. **Temporary access**: Unset all tokens and restart after temporary exposures
 
 ## 💡 Usage Examples
 

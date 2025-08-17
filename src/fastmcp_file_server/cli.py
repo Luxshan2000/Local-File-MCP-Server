@@ -35,15 +35,46 @@ def main_http():
     from .server import mcp, HTTP_PORT, tokens
 
     port = HTTP_PORT
+    ignore_keys = False
 
-    # Check for port argument
-    if "--port" in sys.argv:
-        try:
-            port_idx = sys.argv.index("--port")
-            if port_idx + 1 < len(sys.argv):
-                port = int(sys.argv[port_idx + 1])
-        except (ValueError, IndexError):
-            print("Error: Invalid port number", file=sys.stderr)
+    # Parse command line arguments
+    args = sys.argv[1:]
+    i = 0
+    while i < len(args):
+        if args[i] == "--port":
+            try:
+                if i + 1 < len(args):
+                    port = int(args[i + 1])
+                    i += 2
+                else:
+                    print("Error: --port requires a value", file=sys.stderr)
+                    sys.exit(1)
+            except ValueError:
+                print("Error: Invalid port number", file=sys.stderr)
+                sys.exit(1)
+        elif args[i] == "--ignore-keys":
+            ignore_keys = True
+            i += 1
+        elif args[i] == "--help" or args[i] == "-h":
+            print("FastMCP File Server - HTTP Mode", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("Usage: fastmcp-file-server-http [OPTIONS]", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("Options:", file=sys.stderr)
+            print("  --port PORT      HTTP server port (default: 8082)", file=sys.stderr)
+            print("  --ignore-keys    Skip authentication warning (not recommended)", file=sys.stderr)
+            print("  --help, -h       Show this help message", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("Environment Variables:", file=sys.stderr)
+            print("  MCP_ALLOWED_PATH     Safe directory for file operations", file=sys.stderr)
+            print("  MCP_HTTP_PORT        HTTP server port", file=sys.stderr)
+            print("  MCP_READ_KEY         Read-only access token", file=sys.stderr)
+            print("  MCP_WRITE_KEY        Read/write access token", file=sys.stderr)
+            print("  MCP_ADMIN_KEY        Admin access token", file=sys.stderr)
+            sys.exit(0)
+        else:
+            print(f"Error: Unknown argument '{args[i]}'", file=sys.stderr)
+            print("Use --help for usage information", file=sys.stderr)
             sys.exit(1)
 
     print(f"Starting FastMCP HTTP server on port {port}", file=sys.stderr)
@@ -56,10 +87,36 @@ def main_http():
             file=sys.stderr,
         )
     else:
-        print(
-            "Warning: No authentication configured. Set MCP_ADMIN_KEY for security.",
-            file=sys.stderr,
-        )
+        print("\n" + "="*60, file=sys.stderr)
+        print("⚠️  SECURITY WARNING: NO AUTHENTICATION CONFIGURED", file=sys.stderr)
+        print("="*60, file=sys.stderr)
+        print("", file=sys.stderr)
+        print("The HTTP server will run WITHOUT authentication!", file=sys.stderr)
+        print("This means ANYONE on the network can access your files.", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("For security, please set at least one of:", file=sys.stderr)
+        print("  export MCP_READ_KEY='your-read-token'", file=sys.stderr)
+        print("  export MCP_WRITE_KEY='your-write-token'", file=sys.stderr)
+        print("  export MCP_ADMIN_KEY='your-admin-token'", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Generate secure tokens with: openssl rand -hex 32", file=sys.stderr)
+        print("", file=sys.stderr)
+        if not ignore_keys:
+            print("To bypass this warning (NOT RECOMMENDED), use: --ignore-keys", file=sys.stderr)
+            print("="*60, file=sys.stderr)
+            print("", file=sys.stderr)
+            
+            try:
+                response = input("Continue without authentication? [y/N]: ").strip().lower()
+                if response not in ['y', 'yes']:
+                    print("Aborting for security. Please configure authentication.", file=sys.stderr)
+                    sys.exit(1)
+            except (KeyboardInterrupt, EOFError):
+                print("\nAborting for security.", file=sys.stderr)
+                sys.exit(1)
+        else:
+            print("WARNING BYPASSED: Running without authentication (--ignore-keys)", file=sys.stderr)
+        print("="*60, file=sys.stderr)
 
     try:
         mcp.run(transport="http", port=port)
