@@ -1,6 +1,6 @@
 [project]
 name = "fastmcp-file-server"
-version = "1.0.0"
+version = "0.1.0"
 description = "Secure MCP file server with multi-tier authentication"
 readme = "README.md"
 license = {text = "MIT"}
