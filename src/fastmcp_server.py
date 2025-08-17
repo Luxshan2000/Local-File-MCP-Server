@@ -22,7 +22,8 @@ load_dotenv()
 ALLOWED_PATH = os.getenv("MCP_ALLOWED_PATH", "./allowed")
 MAX_FILE_SIZE = int(os.getenv("MCP_MAX_FILE_SIZE", "10485760"))  # 10MB
 ALLOWED_EXTENSIONS = os.getenv(
-    "MCP_ALLOWED_EXTENSIONS", ".txt,.json,.md,.csv,.log,.xml,.yaml,.yml,.conf,.cfg,.zip"
+    "MCP_ALLOWED_EXTENSIONS",
+    ".txt,.json,.md,.csv,.log,.xml,.yaml,.yml,.conf,.cfg,.zip,.pdf,.jpg,.png",
 ).split(",")
 HTTP_PORT = int(os.getenv("MCP_HTTP_PORT", "8082"))
 
