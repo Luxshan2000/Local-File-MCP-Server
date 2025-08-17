@@ -1,3 +1,5 @@
+<div align="center">
+
 # FastMCP File Server
 
 [![PyPI version](https://badge.fury.io/py/fastmcp-file-server.svg)](https://badge.fury.io/py/fastmcp-file-server)
@@ -6,6 +8,8 @@
 [![Downloads](https://pepy.tech/badge/fastmcp-file-server)](https://pepy.tech/project/fastmcp-file-server)
 [![Downloads/Month](https://pepy.tech/badge/fastmcp-file-server/month)](https://pepy.tech/project/fastmcp-file-server)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+</div>
 
 A versatile, secure file server implementing the Model Context Protocol (MCP) that provides AI assistants with safe file operations. Features multiple connection modes, configurable access levels, and comprehensive security controls for various deployment scenarios.
 
