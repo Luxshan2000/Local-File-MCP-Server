@@ -3,7 +3,7 @@ name = "fastmcp-file-server"
 version = "1.0.0"
 description = "Secure MCP file server with multi-tier authentication"
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = {text = "MIT"}
 authors = [
     {name = "FastMCP File Server Contributors"}
 ]
@@ -21,7 +21,7 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
