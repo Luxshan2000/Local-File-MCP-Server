@@ -2,7 +2,7 @@
 
 # FastMCP File Server
 
-[![PyPI version](https://badge.fury.io/py/fastmcp-file-server.svg)](https://badge.fury.io/py/fastmcp-file-server)
+[![PyPI version](https://img.shields.io/pypi/v/fastmcp-file-server.svg)](https://pypi.org/project/fastmcp-file-server/)
 [![Python](https://img.shields.io/pypi/pyversions/fastmcp-file-server.svg)](https://pypi.org/project/fastmcp-file-server/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/fastmcp-file-server)](https://pepy.tech/project/fastmcp-file-server)
